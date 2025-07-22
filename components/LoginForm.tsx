@@ -1,25 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
   const router = useRouter();
+  const allowedDomain = "gmail.com"; // Change to "mawaridhi.com"
 
-  // If user is already logged in, redirect or show message
-  React.useEffect(() => {
+  useEffect(() => {
     if (session) {
-      router.push("/"); // Redirect to homepage or dashboard
+      router.push("/"); // Redirect if already signed in
     }
   }, [session, router]);
-
-  if (status === "loading") {
-    return <div>Loading session...</div>; // Optional loading state
-  }
 
   if (session) {
     return (
@@ -31,8 +28,16 @@ export default function LoginForm() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const email = new FormData(e.currentTarget).get("email") as string;
-    if (!email) return;
+    setError(""); // clear previous error
+
+    const form = e.currentTarget;
+    const emailInput = form.elements.namedItem("email") as HTMLInputElement;
+    const email = emailInput.value;
+
+    if (!email.endsWith(`@${allowedDomain}`)) {
+      setError("Error! Invalid domain. Please use your company email.");
+      return;
+    }
 
     setLoading(true);
 
@@ -45,12 +50,13 @@ export default function LoginForm() {
 
     if (res?.ok) {
       setSent(true);
-
+      // Clear input field after success
+      emailInput.value = "";
       setTimeout(() => {
         router.push("/verify-request");
       }, 1500);
     } else {
-      alert("Failed to send verification email. Try again.");
+      setError("Failed to send verification email. Try again.");
     }
   };
 
@@ -66,6 +72,12 @@ export default function LoginForm() {
         </p>
       </div>
 
+      {error && (
+        <div role="alert" className="alert alert-error alert-outline mb-4">
+          <span>{error}</span>
+        </div>
+      )}
+
       <div>
         <label
           htmlFor="email"
@@ -78,7 +90,7 @@ export default function LoginForm() {
           name="email"
           id="email"
           required
-          placeholder="example@mawaridhi.com"
+          placeholder={`example@${allowedDomain}`}
           className="block w-full px-4 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
           disabled={loading || sent}
         />
