@@ -26,39 +26,40 @@ export default function LoginForm() {
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(""); // clear previous error
+ const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+  setError(""); // clear previous error
 
-    const form = e.currentTarget;
-    const emailInput = form.elements.namedItem("email") as HTMLInputElement;
-    const email = emailInput.value;
+  const form = e.currentTarget;
+  const emailInput = form.elements.namedItem("email") as HTMLInputElement;
+  const email = emailInput.value;
 
-    if (!email.endsWith(`@${allowedDomain}`)) {
-      setError("Error! Invalid domain. Please use your company email.");
-      return;
-    }
+  if (!email.endsWith(`@${allowedDomain}`)) {
+    setError("Error! Invalid domain. Please use your company email.");
+    return;
+  }
 
-    setLoading(true);
+  setLoading(true);
 
-    const res = await signIn("email", {
-      email,
-      redirect: false,
-    });
+  const res = await signIn("email", {
+    email,
+    redirect: false,
+    callbackUrl: "/", // <--- add this!
+  });
 
-    setLoading(false);
+  setLoading(false);
 
-    if (res?.ok) {
-      setSent(true);
-      // Clear input field after success
-      emailInput.value = "";
-      setTimeout(() => {
-        router.push("/verify-request");
-      }, 1500);
-    } else {
-      setError("Failed to send verification email. Try again.");
-    }
-  };
+  if (res?.ok) {
+    setSent(true);
+    emailInput.value = "";
+    setTimeout(() => {
+      router.push("/verify-request");
+    }, 1500);
+  } else {
+    setError("Failed to send verification email. Try again.");
+  }
+};
+;
 
   return (
     <form
