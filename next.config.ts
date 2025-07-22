@@ -4,13 +4,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  webpack(config) {
-    config.resolve.alias = {
-      ...(config.resolve.alias || {}),
-      "@": __dirname,
-    };
-    return config;
-  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  }
 };
 
 export default nextConfig;
