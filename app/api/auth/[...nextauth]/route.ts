@@ -2,9 +2,19 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/clientPromise";
+import nodemailer from "nodemailer";
 
-const allowedDomain = "gmail.com"; //need to change to mawaridhi.com later
+const allowedDomain = "mawaridhi.com"; // change from gmail.com to mawaridhi.com
 
+// reusable transporter using SMTP credentials
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_SERVER_HOST,
+  port: parseInt(process.env.EMAIL_SERVER_PORT || "587"),
+  auth: {
+    user: process.env.EMAIL_SERVER_USER,
+    pass: process.env.EMAIL_SERVER_PASSWORD,
+  },
+});
 
 export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
@@ -19,6 +29,33 @@ export const authOptions: NextAuthOptions = {
         },
       },
       from: process.env.EMAIL_FROM,
+      async sendVerificationRequest({ identifier, url, provider }) {
+        const { host } = new URL(url);
+        const logoUrl = "/logo.png";
+
+        const html = `
+          <div style="background: #f9fafb; padding: 30px; font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
+              <div style="padding: 30px; text-align: center;">
+                <img src="${logoUrl}" alt="Mawaridhi Logo" style="height: 50px; margin-bottom: 20px;" />
+                <h2 style="color: #0f172a; margin-bottom: 20px;">Sign in to Mawaridhi</h2>
+                <p style="margin-bottom: 30px;">Click the button below to sign in securely:</p>
+                <a href="${url}" style="background: #0f172a; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Sign in</a>
+                <p style="margin-top: 40px; font-size: 12px; color: #888;">
+                  If you didn’t request this, you can safely ignore it.
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+
+        await transporter.sendMail({
+          to: identifier,
+          from: provider.from,
+          subject: "Your sign-in link for Mawaridhi",
+          html,
+        });
+      },
     }),
   ],
   callbacks: {
@@ -29,12 +66,12 @@ export const authOptions: NextAuthOptions = {
     async session({ session }) {
       return session;
     },
-    async redirect({url,baseUrl}) {
-      if(url.startsWith(baseUrl)){
-        return '/'
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith(baseUrl)) {
+        return "/";
       }
       return baseUrl;
-    }
+    },
   },
   pages: {
     signIn: "/login",
