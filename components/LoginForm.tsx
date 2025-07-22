@@ -1,0 +1,124 @@
+"use client";
+
+import React, { useState } from "react";
+import { signIn, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+
+export default function LoginForm() {
+  const { data: session, status } = useSession();
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent] = useState(false);
+  const router = useRouter();
+
+  // If user is already logged in, redirect or show message
+  React.useEffect(() => {
+    if (session) {
+      router.push("/"); // Redirect to homepage or dashboard
+    }
+  }, [session, router]);
+
+  if (status === "loading") {
+    return <div>Loading session...</div>; // Optional loading state
+  }
+
+  if (session) {
+    return (
+      <div className="text-center p-8">
+        <h2 className="text-2xl font-semibold">You are already signed in.</h2>
+      </div>
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const email = new FormData(e.currentTarget).get("email") as string;
+    if (!email) return;
+
+    setLoading(true);
+
+    const res = await signIn("email", {
+      email,
+      redirect: false,
+    });
+
+    setLoading(false);
+
+    if (res?.ok) {
+      setSent(true);
+
+      setTimeout(() => {
+        router.push("/verify-request");
+      }, 1500);
+    } else {
+      alert("Failed to send verification email. Try again.");
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="bg-white p-8 rounded-xl shadow-md w-full max-w-md mx-auto space-y-6"
+    >
+      <div className="text-center">
+        <h2 className="text-2xl font-semibold text-gray-800">Sign in</h2>
+        <p className="text-sm text-gray-500">
+          Use your company email to receive a verification link
+        </p>
+      </div>
+
+      <div>
+        <label
+          htmlFor="email"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Work Email
+        </label>
+        <input
+          type="email"
+          name="email"
+          id="email"
+          required
+          placeholder="example@mawaridhi.com"
+          className="block w-full px-4 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+          disabled={loading || sent}
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading || sent}
+        className={`cursor-pointer w-full py-2 px-4 font-medium rounded-md transition flex justify-center items-center gap-2 ${
+          sent
+            ? "bg-green-600 hover:bg-green-700 text-white"
+            : "bg-blue-800 hover:bg-blue-900 text-white"
+        }`}
+      >
+        {loading && <span className="loading loading-spinner text-info"></span>}
+
+        {sent ? (
+          <>
+            <svg
+              className="h-5 w-5 text-white"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth="3"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            Sent
+          </>
+        ) : loading ? (
+          "Sending..."
+        ) : (
+          "Send Verification Link"
+        )}
+      </button>
+    </form>
+  );
+}
