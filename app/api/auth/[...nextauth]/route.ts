@@ -4,7 +4,7 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
 
-const allowedDomain = "mawaridhi.com"; // changed from gmail.com
+const allowedDomain = "gmail.com"; // need to change it later to mawaridhi.com
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
