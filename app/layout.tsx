@@ -32,7 +32,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased min-h-screen flex flex-col items-center`}
       >
         <ThemeProviderWrapper>
-          <div className="w-full max-w-5xl px-4 py-6">
+          <div className="w-full max-w-7xl px-4 py-6">
             <Providers>
               <Navbar />
               {children}
