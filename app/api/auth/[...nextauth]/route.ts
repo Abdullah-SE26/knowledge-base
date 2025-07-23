@@ -36,7 +36,7 @@ export const authOptions: NextAuthOptions = {
           <div style="background: #f9fafb; padding: 30px; font-family: Arial, sans-serif;">
             <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
               <div style="padding: 30px; text-align: center;">
-                <img src="${logoUrl}" alt="Mawaridhi Logo" style="height: 50px; margin-bottom: 20px;" />
+                <img src="${logoUrl}" alt="Mawaridhi Logo" style="height: 100px; margin-bottom: 20px;" />
                 <h2 style="color: #0f172a; margin-bottom: 20px;">Sign in to Mawaridhi Knowledge Base</h2>
                 <p style="margin-bottom: 30px;">Click the button below to securely sign in:</p>
                 <a href="${url}" style="background: #0f172a; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Sign in</a>
