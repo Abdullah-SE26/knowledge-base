@@ -51,7 +51,7 @@ export const authOptions: NextAuthOptions = {
         await transporter.sendMail({
           to: identifier,
           from: provider.from,
-          subject: "Your sign-in link for Mawaridhi",
+          subject: "Your sign-in link for Mawaridhi-KB",
           html,
         });
       },

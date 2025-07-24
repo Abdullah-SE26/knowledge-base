@@ -39,7 +39,7 @@ export default async function Navbar() {
       <Link href="/">Home</Link>
       <Link href="/articles">Articles</Link>
       <Link href="#">Help Desk</Link>
-      <Link href="https://mawaridhi.com/" target="_blank">
+      <Link href="https://mawaridhi.com" target="_blank">
         Visit Mawaridhi
       </Link>
     </div>
