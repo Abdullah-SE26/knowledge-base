@@ -8,6 +8,24 @@ export interface IAttachment {
   name?: string; // optional display name
 }
 
+
+export interface ArticleSerialized {
+  _id: string;
+  slug: string;
+  title: string;
+  subject: string;
+  content: string;
+  tags: string[];
+  attachments: IAttachment[];
+  createdAt: string;
+  createdAtFormatted: string;
+  updatedAt: string;
+  updatedAtFormatted: string;
+  upvotesCount: number;
+  downvotesCount: number;
+}
+
+
 export interface IArticle extends Document {
   title: string;
   content: string;

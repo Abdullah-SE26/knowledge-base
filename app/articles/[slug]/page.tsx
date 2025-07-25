@@ -84,16 +84,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     </a>
                   </>
                 )}
-                {attachment.type === "image" && (
-                  <>
-                    <ImageIcon className="w-5 h-5 text-blue-600" />
-                    <img
-                      src={attachment.url}
-                      alt={attachment.name || "Image"}
-                      className="max-w-full rounded shadow ml-1"
-                    />
-                  </>
-                )}
                 {attachment.type === "link" && (
                   <>
                     <LinkIcon className="w-5 h-5 text-blue-600" />
@@ -118,6 +108,16 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     >
                       {attachment.name || "Open Form"}
                     </a>
+                  </>
+                )}
+                {attachment.type === "image" && (
+                  <>
+                    <ImageIcon className="w-5 h-5 text-blue-600" />
+                    <img
+                      src={attachment.url}
+                      alt={attachment.name || "Image"}
+                      className="max-w-full rounded shadow ml-1"
+                    />
                   </>
                 )}
               </li>

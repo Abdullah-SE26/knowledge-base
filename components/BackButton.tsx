@@ -11,14 +11,16 @@ const BackButton = () => {
     if(pathName === '/') return null;
 
     return (
-        <button onClick={() => router.back()}
-        className="flex items-center  text-gray-600 hover:text-black mb-5 px-8 py-1.5 cursor-pointer border border-gray-300 rounded-md transition hover:border-black dark:text-white dark:border-white dark:hover:bg-blue-900"
-        aria-label="Go back"
-        >
-        
-        <ArrowLeft size={20}/> 
 
+        <button
+            onClick={() => router.back()}
+            className="flex items-center text-gray-600 hover:text-white hover:bg-blue-900 mb-0 px-6 py-2 cursor-pointer border border-gray-300 rounded-md transition hover:border-black dark:text-white dark:border-white dark:hover:bg-blue-900"
+            aria-label="Go back"
+            title="Back"
+            >
+            <ArrowLeft size={20} />
         </button>
+
     )
 
 }

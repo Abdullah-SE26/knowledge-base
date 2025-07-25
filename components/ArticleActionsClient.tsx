@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Copy, Check, ThumbsUp, ThumbsDown } from "lucide-react";
 
 interface ArticleActionsClientProps {
@@ -22,17 +22,27 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
   const [copied, setCopied] = useState(false);
   const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(null); // track user's vote
 
+  // Keep refs of previous counts for rollback on failure
+  const prevUpvotes = useRef(upvotes);
+  const prevDownvotes = useRef(downvotes);
+  const prevUserVote = useRef(userVote);
+
   const handleVote = async (type: "upvote" | "downvote") => {
     if (loading || userVote === type) return; // prevent re-voting the same type
     setLoading(true);
 
+    // Save current state for rollback
+    prevUpvotes.current = upvotes;
+    prevDownvotes.current = downvotes;
+    prevUserVote.current = userVote;
+
     // Optimistic update
     if (type === "upvote") {
-      setUpvotes(prev => prev + 1);
-      if (userVote === "downvote") setDownvotes(prev => prev - 1);
+      setUpvotes((prev) => prev + 1);
+      if (userVote === "downvote") setDownvotes((prev) => prev - 1);
     } else {
-      setDownvotes(prev => prev + 1);
-      if (userVote === "upvote") setUpvotes(prev => prev - 1);
+      setDownvotes((prev) => prev + 1);
+      if (userVote === "upvote") setUpvotes((prev) => prev - 1);
     }
 
     setUserVote(type);
@@ -52,6 +62,10 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
       setDownvotes(data.downvotes);
     } catch (err) {
       console.error("Vote failed", err);
+      // Rollback optimistic update on failure
+      setUpvotes(prevUpvotes.current);
+      setDownvotes(prevDownvotes.current);
+      setUserVote(prevUserVote.current);
     } finally {
       setLoading(false);
     }
@@ -64,12 +78,12 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-4 mt-6 flex-wrap">
+    <div className="flex items-center gap-4 mt-6 flex-wrap" aria-live="polite" aria-atomic="true">
       <button
         onClick={() => handleVote("upvote")}
         disabled={loading}
         aria-label={title ? `Upvote article titled ${title}` : "Upvote article"}
-        className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition disabled:opacity-50 ${
+        className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 ${
           userVote === "upvote"
             ? "bg-green-500 text-white"
             : "bg-green-100 text-green-700 hover:bg-green-200"
@@ -83,7 +97,7 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
         onClick={() => handleVote("downvote")}
         disabled={loading}
         aria-label={title ? `Downvote article titled ${title}` : "Downvote article"}
-        className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition disabled:opacity-50 ${
+        className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 ${
           userVote === "downvote"
             ? "bg-red-500 text-white"
             : "bg-red-100 text-red-700 hover:bg-red-200"
@@ -96,7 +110,7 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
       <button
         onClick={handleCopy}
         aria-label={title ? `Copy link to article titled ${title}` : "Copy link to article"}
-        className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium transition cursor-pointer dark:text-black"
+        className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium transition cursor-pointer dark:text-black focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
       >
         {copied ? (
           <>
