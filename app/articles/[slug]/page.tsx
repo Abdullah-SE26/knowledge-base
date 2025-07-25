@@ -2,8 +2,9 @@
 import connectMongoDB from "@/lib/mongodb";
 import Article, { IArticle } from "@/models/Article";
 import { notFound } from "next/navigation";
-import { Types } from "mongoose";
 import ArticleActionsClient from "@/components/ArticleActionsClient";
+import { format } from "date-fns";
+import BackButton from "@/components/BackButton";
 
 interface ArticlePageProps {
   params: {
@@ -20,27 +21,44 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     notFound();
   }
 
+  const createdAt = article.createdAt ? new Date(article.createdAt) : null;
+  const updatedAt = article.updatedAt ? new Date(article.updatedAt) : null;
+
   const safeArticle = {
     ...article,
     _id: article._id.toString(),
-    createdAt: article.createdAt.toISOString(),
-    updatedAt: article.updatedAt.toISOString(),
+    createdAtFormatted: createdAt ? format(createdAt, "MMMM d, yyyy h:mm a") : "",
+    updatedAtFormatted:
+      updatedAt && updatedAt.getTime() !== createdAt?.getTime()
+        ? format(updatedAt, "MMMM d, yyyy h:mm a")
+        : null,
     upvotesCount: article.upvotes?.length ?? 0,
     downvotesCount: article.downvotes?.length ?? 0,
   };
 
   return (
-    <main className="max-w-3xl mx-auto px-4 py-12">
-      <h1 className="text-4xl font-bold mb-4">{safeArticle.title}</h1>
-      <h2 className="text-lg font-semibold mb-4">{safeArticle.subject}</h2>
+    <main className="max-w-3xl mx-auto py-12 px-4">
+      <BackButton/>
+      <h1 className="text-4xl font-bold mb-2 text-center">{safeArticle.title}</h1>
+      <h2 className="text-lg text-gray-600 mb-4 text-center dark:text-white">{safeArticle.subject}</h2>
+
       <article className="prose prose-lg mt-6">{safeArticle.content}</article>
 
-      <ArticleActionsClient
-        articleId={safeArticle.slug} // use slug here too
-        initialUpvotes={safeArticle.upvotesCount}
-        initialDownvotes={safeArticle.downvotesCount}
-        title={safeArticle.title}
-      />
+      <div className="mt-8 text-sm text-gray-500">
+        <p>Created: {safeArticle.createdAtFormatted}</p>
+        {safeArticle.updatedAtFormatted && (
+          <p>Last updated: {safeArticle.updatedAtFormatted}</p>
+        )}
+      </div>
+
+      <div className="mt-8">
+        <ArticleActionsClient
+          articleId={article.slug}
+          initialUpvotes={safeArticle.upvotesCount}
+          initialDownvotes={safeArticle.downvotesCount}
+          title={safeArticle.title}
+        />
+      </div>
     </main>
   );
 }

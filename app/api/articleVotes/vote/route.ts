@@ -1,30 +1,15 @@
 import mongoose from "mongoose";
 import { NextResponse, type NextRequest } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import connectToDatabase from "@/lib/mongodb";
 import Article from "@/models/Article";
-import { getServerSession } from "next-auth/next"; // Note the /next import
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function POST(request: NextRequest) {
   try {
-    // IMPORTANT: create a 'req' and 'res' shim for getServerSession
-    const req = {
-      headers: Object.fromEntries(request.headers.entries()),
-      cookies: request.cookies,
-    };
+    const session = await getServerSession(authOptions);
 
-    // Since you don't have NextApiResponse in App Router,
-    // create a dummy 'res' object with minimal methods
-    const res = {
-      getHeader() {},
-      setHeader() {},
-      // If needed, add more dummy functions here
-    };
-
-    // Get user session - pass the shim objects and your authOptions
-    const session = await getServerSession(req as any, res as any, authOptions);
     console.log("Session user:", session?.user);
-
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -41,14 +26,13 @@ export async function POST(request: NextRequest) {
 
     await connectToDatabase();
 
-    // You said slug is generated automatically, so find by slug
     const article = await Article.findOne({ slug: articleId });
 
     if (!article) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
 
-    // Remove user from vote arrays
+    // Remove existing votes from the user
     article.upvotes = article.upvotes.filter(id => id.toString() !== userId);
     article.downvotes = article.downvotes.filter(id => id.toString() !== userId);
 
