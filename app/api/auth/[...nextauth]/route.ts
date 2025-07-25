@@ -4,7 +4,7 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
 
-const allowedDomain = "gmail.com"; // need to change it later to mawaridhi.com
+const allowedDomain = "gmail.com"; // Change later to mawaridhi.com
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -30,7 +30,7 @@ export const authOptions: NextAuthOptions = {
       from: process.env.EMAIL_FROM,
       async sendVerificationRequest({ identifier, url, provider }) {
         const { host } = new URL(url);
-        const logoUrl = "https://knowledge-base-two-amber.vercel.app/logo.png"; // public/logo.png
+        const logoUrl = "https://knowledge-base-two-amber.vercel.app/logo.png";
 
         const html = `
           <div style="background: #f9fafb; padding: 30px; font-family: Arial, sans-serif;">
@@ -62,7 +62,10 @@ export const authOptions: NextAuthOptions = {
       const email = user?.email || "";
       return email.endsWith(`@${allowedDomain}`);
     },
-    async session({ session }) {
+    async session({ session, user }) {
+      if (session.user && user.id) {
+        session.user.id = user.id; // ✅ This is the fix
+      }
       return session;
     },
     async redirect({ url, baseUrl }) {
