@@ -1,4 +1,3 @@
-// app/articles/page.tsx
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
@@ -10,15 +9,16 @@ import { Types } from "mongoose";
 export default async function ArticlesPage() {
   const session = await getServerSession(authOptions);
 
-  if (!session || !session.user?.email?.endsWith("@gmail.com")) { //change this later to @mawaridhi.com
+  if (!session || !session.user?.email?.endsWith("@gmail.com")) { // change later to @mawaridhi.com
     redirect("/login");
   }
 
   await connectMongoDB();
 
   const articles = (await Article.find()
-    .sort({ upvotes: -1, createdAt: -1 })
-    .lean()) as (IArticle & { _id: Types.ObjectId })[];
+  .sort({ upvotes: -1, createdAt: -1 })
+  .lean()) as unknown as (IArticle & { _id: Types.ObjectId })[];
+
 
   const filteredArticles = articles.filter(a => a.title && a.subject && a.content);
 
@@ -29,10 +29,15 @@ export default async function ArticlesPage() {
     subject: article.subject,
     content: article.content,
     tags: article.tags || [],
-    createdAt: article.createdAt.toISOString(),
-    createdAtFormatted: new Date(article.createdAt).toLocaleDateString("en-GB"),
-    updatedAt: article.updatedAt.toISOString(),
-    updatedAtFormatted: new Date(article.updatedAt).toLocaleDateString("en-GB"),
+    attachments: article.attachments || [], // include attachments here
+    createdAt: article.createdAt ? article.createdAt.toISOString() : '',
+    createdAtFormatted: article.createdAt
+      ? new Date(article.createdAt).toLocaleDateString("en-GB")
+      : "",
+    updatedAt: article.updatedAt ? article.updatedAt.toISOString() : '',
+    updatedAtFormatted: article.updatedAt
+      ? new Date(article.updatedAt).toLocaleDateString("en-GB")
+      : "",
     upvotesCount: article.upvotes?.length ?? 0,
     downvotesCount: article.downvotes?.length ?? 0,
   }));

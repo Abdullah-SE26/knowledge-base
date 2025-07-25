@@ -1,44 +1,47 @@
-import mongoose, { Schema, Types, HydratedDocument, Model } from "mongoose";
-import slugify from "slugify";
+// models/Article.ts
 
-export interface IArticle {
-  _id: Types.ObjectId;
-  slug: string;
-  title: string;
-  subject: string;
-  content: string;
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  upvotes: Types.ObjectId[];
-  downvotes: Types.ObjectId[];
+import mongoose, { Schema, Document } from "mongoose";
+
+export interface IAttachment {
+  type: "pdf" | "image" | "link" | "form";
+  url: string;
+  name?: string; // optional display name
 }
 
-export type ArticleDoc = HydratedDocument<IArticle>;
+export interface IArticle extends Document {
+  title: string;
+  content: string;
+  slug: string;
+  subject: string;
+  attachments?: IAttachment[];
+  upvotes?: string[];
+  downvotes?: string[];
+  createdAt?: Date;
+  updatedAt?: Date;
+  tags?: string[];
+}
+
+const AttachmentSchema = new Schema<IAttachment>(
+  {
+    type: { type: String, enum: ["pdf", "image", "link", "form"], required: true },
+    url: { type: String, required: true },
+    name: { type: String }, // optional
+  },
+  { _id: false }
+);
 
 const ArticleSchema = new Schema<IArticle>(
   {
-    title: { type: String, required: true, trim: true },
-    subject: { type: String, required: true },
+    title: { type: String, required: true },
     content: { type: String, required: true },
-    tags: { type: [String], default: [] },
     slug: { type: String, required: true, unique: true },
-    upvotes: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
-    downvotes: [{ type: Schema.Types.ObjectId, ref: "User", default: [] }],
+    subject: { type: String },
+    attachments: [AttachmentSchema],
+    upvotes: [String],
+    downvotes: [String],
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-ArticleSchema.pre<ArticleDoc>("save", function (next) {
-  if (this.isModified("title")) {
-    this.slug = slugify(this.title, { lower: true, strict: true });
-  }
-  next();
-});
-
-const Article: Model<IArticle> =
-  mongoose.models.Article || mongoose.model<IArticle>("Article", ArticleSchema);
-
-export default Article;
+export default mongoose.models.Article ||
+  mongoose.model<IArticle>("Article", ArticleSchema);
