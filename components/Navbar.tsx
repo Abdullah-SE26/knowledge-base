@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import LogoutButton from "./LogoutButton";
-import { LogOut, ChevronDown,UserCog } from "lucide-react";
+import { LogOut, ChevronDown,UserCog, Home,  FileTextIcon, HeadsetIcon, GlobeIcon, } from "lucide-react";
 import ModeToggleWrapper from "./ModeTogglerWrapper";
 import LogoSwitcher from "./LogoSwitcher";
 
@@ -36,12 +36,27 @@ export default async function Navbar() {
 
     {/* Links */}
     <div className="flex gap-6 text-md font-medium text-gray-700 dark:text-gray-200">
-      <Link href="/">Home</Link>
-      <Link href="/articles">Articles</Link>
-      <Link href="#">Help Desk</Link>
-      <Link href="https://mawaridhi.com" target="_blank">
-        Visit Mawaridhi
+
+      <Link href="/" title="Home">
+      <span className='hidden md:inline'>Home</span>
+      <Home className='inline mt-2 ml-2 md:hidden w-8 h-6'/>
       </Link>
+
+      <Link href="/articles" title="All Articles">
+      <span className='hidden md:inline'>Articles</span>
+      <FileTextIcon className='inline mt-2 md:hidden w-8 h-6'/>
+      </Link>
+
+      <Link href="#" title="Visit IT-Help Desk">
+      <span className='hidden md:inline'>Help Desk</span>
+      <HeadsetIcon className='inline mt-2 md:hidden w-8 h-6'/>
+      </Link>
+
+      <Link href="https://mawaridhi.com" target="_blank" title="Visit Mawaridhi.com">
+        <span className='hidden md:inline'>Visit Mawaridhi</span>
+        <GlobeIcon className='inline mt-2 md:hidden w-8 h-6'/>
+      </Link>
+
     </div>
 
     {/* Theme + Auth */}
@@ -76,7 +91,7 @@ export default async function Navbar() {
       ) : (
         <Link
           href="/login"
-          className="hover:bg-blue-900 rounded-md py-1 px-3 bg-blue-800 text-white cursor-pointer"
+          className="hover:bg-blue-900 rounded-md py-2 px-3 bg-blue-800 text-white cursor-pointer"
         >
           Login
         </Link>
