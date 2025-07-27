@@ -84,10 +84,8 @@ export default async function Navbar() {
             </div>
           </li>
         </ul>
-
-
-
-        </details>
+    </details>
+    
       ) : (
         <Link
           href="/login"
