@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import LogoSwitcher from "./LogoSwitcher";
 
 export default function LoginForm() {
   const { data: session } = useSession();
@@ -61,20 +62,23 @@ export default function LoginForm() {
 };
 ;
 
-  return (
+  return (    
     <form
       onSubmit={handleSubmit}
-      className="bg-white p-8 rounded-xl shadow-md w-full max-w-md mx-auto space-y-6 dark:bg-gray-300"
+      className="bg-white p-10 mb-25 rounded-xl shadow-md w-full max-w-md mx-auto space-y-6 dark:bg-blue-950"
     >
+      
+        <LogoSwitcher/>
+     
       <div className="text-center">
-        <h2 className="text-2xl font-semibold text-gray-800">Sign in</h2>
-        <p className="text-sm text-gray-500">
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Sign in</h2>
+        <p className="text-sm text-gray-500 dark:text-white">
           Use your company email to receive a verification link
         </p>
       </div>
 
       {error && (
-        <div role="alert" className="alert alert-error alert-outline mb-4">
+        <div role="alert" className="alert alert-error alert-outline mb-4 dark:text-white">
           <span>{error}</span>
         </div>
       )}
@@ -82,7 +86,7 @@ export default function LoginForm() {
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-1"
+          className="block text-sm font-medium text-gray-700 mb-1 dark:text-white"
         >
           Work Email
         </label>
@@ -92,7 +96,7 @@ export default function LoginForm() {
           id="email"
           required
           placeholder={`example@${allowedDomain}`}
-          className="block w-full px-4 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
+          className="dark:text-white block w-full px-4 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
           disabled={loading || sent}
         />
       </div>
@@ -100,7 +104,7 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading || sent}
-        className={`cursor-pointer w-full py-2 px-4 font-medium rounded-md transition flex justify-center items-center gap-2 ${
+        className={`dark:text-white cursor-pointer w-full py-2 px-4 font-medium rounded-md transition flex justify-center items-center gap-2 ${
           sent
             ? "bg-green-600 hover:bg-green-700 text-white"
             : "bg-blue-800 hover:bg-blue-900 text-white"

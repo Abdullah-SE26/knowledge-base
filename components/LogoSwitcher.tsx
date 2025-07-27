@@ -20,7 +20,7 @@ export default function LogoSwitcher() {
 
   return (
     <Link href="/">
-      <div className="h-[60px] w-[150px] flex items-center">
+      <div className="h-[60px] w-[150px] mx-auto flex items-center">
         <Image
           src={logoSrc}
           alt="Mawaridhi Logo"
