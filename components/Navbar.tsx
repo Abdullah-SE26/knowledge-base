@@ -35,32 +35,32 @@ export default async function Navbar() {
     </div>
 
     {/* Links */}
-    <div className="flex gap-6 text-md font-medium text-gray-700 dark:text-gray-200">
+    <div className="flex gap-6  text-md font-medium text-gray-700 dark:text-gray-200">
 
-      <Link href="/" title="Home">
+      <Link href="/" title="Home" className="flex items-center gap-1">
       <span className='hidden md:inline'>Home</span>
-      <Home className='inline mt-2 ml-2 md:hidden w-8 h-6'/>
+      <Home className='inline mt-2 ml-2 md:hidden w-5 h-5'/>
       </Link>
 
-      <Link href="/articles" title="All Articles">
+      <Link href="/articles" title="All Articles" className="flex items-center gap-1">
       <span className='hidden md:inline'>Articles</span>
-      <FileTextIcon className='inline mt-2 md:hidden w-8 h-6'/>
+      <FileTextIcon className='inline mt-2 md:hidden w-5 h-5'/>
       </Link>
 
-      <Link href="#" title="Visit IT-Help Desk">
+      <Link href="#" title="Visit IT-Help Desk" className="flex items-center gap-1" >
       <span className='hidden md:inline'>Help Desk</span>
-      <HeadsetIcon className='inline mt-2 md:hidden w-8 h-6'/>
+      <HeadsetIcon className='inline mt-2 md:hidden w-5 h-5'/>
       </Link>
 
-      <Link href="https://mawaridhi.com" target="_blank" title="Visit Mawaridhi.com">
+      <Link href="https://mawaridhi.com" target="_blank" title="Visit Mawaridhi.com" className="flex items-center gap-1 mr-3">
         <span className='hidden md:inline'>Visit Mawaridhi</span>
-        <GlobeIcon className='inline mt-2 md:hidden w-8 h-6'/>
+        <GlobeIcon className='inline mt-2 md:hidden w-5 h-5'/>
       </Link>
 
     </div>
 
     {/* Theme + Auth */}
-    <div className="flex gap-3 items-center">
+    <div className="flex gap-3  items-center">
       <ModeToggleWrapper />
       {session?.user ? (
         <details className="relative dropdown">
@@ -91,7 +91,7 @@ export default async function Navbar() {
       ) : (
         <Link
           href="/login"
-          className="hover:bg-blue-900 rounded-md py-2 px-3 bg-blue-800 text-white cursor-pointer"
+          className="hover:bg-blue-900 sm:text-sm sm:py-1 sm:px-2 rounded-md py-2 px-3 bg-blue-800 text-white cursor-pointer"
         >
           Login
         </Link>
