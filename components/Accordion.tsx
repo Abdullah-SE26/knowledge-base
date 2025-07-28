@@ -42,6 +42,15 @@ const FaqAccordion = () => {
           to create a support ticket and get personalized assistance.
         </AccordionContent>
       </AccordionItem>
+
+      <AccordionItem value="item-5">
+        <AccordionTrigger>I didnt receive an email!</AccordionTrigger>
+        <AccordionContent>
+          If you are registering for the first time, the verification email may take some time to deliver, please wait for some time. <br/>
+          If you still dont see an email please check the Spam or the All Mail sections. <br/>
+          Double check your entered email aswell, only company registered emails are allowed.
+        </AccordionContent>
+      </AccordionItem>
     </Accordion>
   );
 };

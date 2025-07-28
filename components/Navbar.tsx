@@ -100,7 +100,7 @@ export default async function navbar() {
                 <li>
                   <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 rounded-md text-left">
                     <UserCog size={16} />
-                    <Link href="/dashboard" className="w-full">
+                    <Link href="/admin" className="w-full">
                       Admin Dashboard
                     </Link>
                   </div>

@@ -11,7 +11,8 @@ export default function LoginForm() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const allowedDomain = "gmail.com"; // Change to "mawaridhi.com"
+  const allowedDomain = "mawaridhi.com"; // Change to "mawaridhi.com"
+  const devEmails = ["m.abdullahx21@gmail.com"];
 
   useEffect(() => {
     if (session) {
@@ -35,8 +36,8 @@ export default function LoginForm() {
   const emailInput = form.elements.namedItem("email") as HTMLInputElement;
   const email = emailInput.value;
 
-  if (!email.endsWith(`@${allowedDomain}`)) {
-    setError("Error! Invalid domain. Please use your company email.");
+  if (!email.endsWith(`@${allowedDomain}`) && !devEmails.includes(email)) {
+    setError("Error! Invalid domain. Please use your company email.")
     return;
   }
 
@@ -45,7 +46,7 @@ export default function LoginForm() {
   const res = await signIn("email", {
     email,
     redirect: false,
-    callbackUrl: "/", // <--- add this!
+    callbackUrl: "/", 
   });
 
   setLoading(false);
@@ -78,7 +79,7 @@ export default function LoginForm() {
       </div>
 
       {error && (
-        <div role="alert" className="alert alert-error alert-outline mb-4 dark:text-white">
+        <div role="alert" className="alert alert-error alert-outline mb-4">
           <span>{error}</span>
         </div>
       )}

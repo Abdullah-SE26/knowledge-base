@@ -5,7 +5,7 @@ import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
 
 const allowedDomain = "mawaridhi.com"; // Change later to mawaridhi.com
-const devEmail = ["m.abdullahx21@gmail.com"];
+const devEmails = ["m.abdullahx21@gmail.com"];
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -68,7 +68,7 @@ export const authOptions: NextAuthOptions = {
     }
 
     // Allow if email is in devEmail exception list
-    if (devEmail.includes(email)) {
+    if (devEmails.includes(email)) {
       return true;
     }
 
