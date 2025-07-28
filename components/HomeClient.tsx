@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import type { ArticleSerialized } from "@/models/Article";
 import HeroSection from "@/components/HeroSection"; // only search + hero UI, no cards
 import ArticleSection from "@/components/ArticleSection";
+import FaqAccordion from "./Accordion";
 
 interface HomeClientProps {
   articles: ArticleSerialized[];
@@ -25,7 +26,7 @@ export default function HomeClient({ articles }: HomeClientProps) {
     <>
       <HeroSection onSearch={setSearchQuery} />
 
-      <div className="max-w-6xl mx-auto px-4 mt-8">
+      <div className="max-w-6xl mx-auto px-4 mt-8 mb-20">
         {searchQuery && filteredArticles.length > 0 && (
           <ArticleSection articles={filteredArticles} />
         )}
@@ -33,6 +34,8 @@ export default function HomeClient({ articles }: HomeClientProps) {
           <p className="text-center text-gray-500">No articles found.</p>
         )}
       </div>
+
+      <FaqAccordion/>
     </>
   );
 }

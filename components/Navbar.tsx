@@ -82,7 +82,7 @@ export default async function navbar() {
         </NavbarCollapse>
 
         {/* Right: Theme Toggle + Auth */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 ">
           <ModeToggleWrapper />
           {session?.user ? (
             <details className="relative dropdown">

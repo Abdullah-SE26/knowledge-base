@@ -4,7 +4,8 @@ import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
 
-const allowedDomain = "gmail.com"; // Change later to mawaridhi.com
+const allowedDomain = "mawaridhi.com"; // Change later to mawaridhi.com
+const devEmail = ["m.abdullahx21@gmail.com"];
 
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
@@ -41,7 +42,7 @@ export const authOptions: NextAuthOptions = {
                 <p style="margin-bottom: 30px;">Click the button below to securely sign in:</p>
                 <a href="${url}" style="background: #0f172a; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Sign in</a>
                 <p style="margin-top: 40px; font-size: 12px; color: #888;">
-                  If you didn’t request this, you can safely ignore this email.
+                  If you didnt request this, you can safely ignore this email.
                 </p>
               </div>
             </div>
@@ -59,12 +60,24 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      const email = user?.email || "";
-      return email.endsWith(`@${allowedDomain}`);
-    },
+    const email = user?.email?.toLowerCase() || "";
+
+    // Allow if email ends with @mawaridhi.com
+    if (email.endsWith(`@${allowedDomain}`)) {
+      return true;
+    }
+
+    // Allow if email is in devEmail exception list
+    if (devEmail.includes(email)) {
+      return true;
+    }
+
+    // Otherwise, deny sign in
+    return false;
+  },
     async session({ session, user }) {
       if (session.user && user.id) {
-        session.user.id = user.id; // ✅ This is the fix
+        session.user.id = user.id; 
       }
       return session;
     },
