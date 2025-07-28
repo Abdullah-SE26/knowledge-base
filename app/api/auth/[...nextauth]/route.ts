@@ -3,10 +3,14 @@ import EmailProvider from "next-auth/providers/email";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
+import { JWT } from "next-auth/jwt";
+import { Session } from "next-auth";
 
-const allowedDomain = "mawaridhi.com"; // Change later to mawaridhi.com
+// Allowed access
+const allowedDomain = "mawaridhi.com";
 const devEmails = ["m.abdullahx21@gmail.com"];
 
+// Nodemailer setup
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: parseInt(process.env.EMAIL_SERVER_PORT || "587"),
@@ -18,6 +22,11 @@ const transporter = nodemailer.createTransport({
 
 export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
+
+  session: {
+    strategy: "jwt", // required for middleware token access
+  },
+
   providers: [
     EmailProvider({
       server: {
@@ -30,7 +39,6 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
       async sendVerificationRequest({ identifier, url, provider }) {
-        const { host } = new URL(url);
         const logoUrl = "https://knowledge-base-two-amber.vercel.app/logo.png";
 
         const html = `
@@ -42,7 +50,7 @@ export const authOptions: NextAuthOptions = {
                 <p style="margin-bottom: 30px;">Click the button below to securely sign in:</p>
                 <a href="${url}" style="background: #0f172a; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Sign in</a>
                 <p style="margin-top: 40px; font-size: 12px; color: #888;">
-                  If you didnt request this, you can safely ignore this email.
+                  If you didn’t request this, you can safely ignore this email.
                 </p>
               </div>
             </div>
@@ -58,37 +66,50 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+
   callbacks: {
     async signIn({ user }) {
-    const email = user?.email?.toLowerCase() || "";
+      const email = user?.email?.toLowerCase() || "";
 
-    // Allow if email ends with @mawaridhi.com
-    if (email.endsWith(`@${allowedDomain}`)) {
-      return true;
-    }
+      if (email.endsWith(`@${allowedDomain}`)) return true;
+      if (devEmails.includes(email)) return true;
 
-    // Allow if email is in devEmail exception list
-    if (devEmails.includes(email)) {
-      return true;
-    }
+      return false;
+    },
 
-    // Otherwise, deny sign in
-    return false;
-  },
-    async session({ session, user }) {
-      if (session.user && user.id) {
-        session.user.id = user.id; 
+    async jwt({ token, user }: { token: JWT; user?: any }) {
+      if (user?.email) {
+        token.email = user.email;
+
+        if (
+          user.email.endsWith(`@${allowedDomain}`) ||
+          devEmails.includes(user.email)
+        ) {
+          token.role = "admin";
+        }
+      }
+      return token;
+    },
+
+    async session({ session, token }: { session: Session; token: JWT }) {
+      if (session.user) {
+        session.user.id = token.sub!;
+        session.user.email = token.email ?? null;
+        session.user.role = token.role as string;
       }
       return session;
     },
+
     async redirect({ url, baseUrl }) {
       return url.startsWith(baseUrl) ? "/" : baseUrl;
     },
   },
+
   pages: {
     signIn: "/login",
     verifyRequest: "/verify-request",
   },
+
   secret: process.env.NEXTAUTH_SECRET,
 };
 
