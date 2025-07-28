@@ -4,19 +4,22 @@ import React, { useState, useEffect } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import LogoSwitcher from "./LogoSwitcher";
+import { toast } from "react-hot-toast";
 
 export default function LoginForm() {
   const { data: session } = useSession();
+  const router = useRouter();
+
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
-  const allowedDomain = "mawaridhi.com"; // Change to "mawaridhi.com"
+
+  const allowedDomain = "mawaridhi.com";
   const devEmails = ["m.abdullahx21@gmail.com"];
 
   useEffect(() => {
     if (session) {
-      router.push("/"); // Redirect if already signed in
+      router.push("/");
     }
   }, [session, router]);
 
@@ -28,71 +31,77 @@ export default function LoginForm() {
     );
   }
 
- const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setError(""); // clear previous error
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
 
-  const form = e.currentTarget;
-  const emailInput = form.elements.namedItem("email") as HTMLInputElement;
-  const email = emailInput.value;
+    const form = e.currentTarget;
+    const emailInput = form.elements.namedItem("email") as HTMLInputElement;
+    const email = emailInput.value.trim().toLowerCase();
 
-  if (!email.endsWith(`@${allowedDomain}`) && !devEmails.includes(email)) {
-    setError("Error! Invalid domain. Please use your company email.")
-    return;
-  }
+    // Client-side domain check (UX only)
+    if (!email.endsWith(`@${allowedDomain}`) && !devEmails.includes(email)) {
+      setError(" ❌ Error! Invalid domain. Please use your company provided email.")
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  const res = await signIn("email", {
-    email,
-    redirect: false,
-    callbackUrl: "/", 
-  });
+    const res = await signIn("email", {
+      email,
+      redirect: false,
+      callbackUrl: "/",
+    });
 
-  setLoading(false);
+    setLoading(false);
 
-  if (res?.ok) {
-    setSent(true);
-    emailInput.value = "";
-    setTimeout(() => {
-      router.push("/verify-request");
-    }, 1500);
-  } else {
-    setError("Failed to send verification email. Try again.");
-  }
-};
-;
+    if (res?.ok) {
+      setSent(true);
+      emailInput.value = "";
+      toast.success("✅ Verification link sent!");
+      setTimeout(() => {
+        router.push("/verify-request");
+      }, 1000);
+    } else {
+      setError("❌ Error! Invalid domain. Please use your company provided email.")
+    }
+  };
 
-  return (    
+  return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white p-10 mb-25 rounded-xl shadow-md w-full max-w-md mx-auto space-y-6 dark:bg-blue-950"
+      className="bg-white dark:bg-blue-950 p-10 rounded-xl mb-20 shadow-md w-full max-w-md mx-auto space-y-6"
     >
-      
-        <LogoSwitcher/>
-     
+      <div className="flex justify-center">
+        <LogoSwitcher />
+      </div>
+
       <div className="text-center">
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">Sign in</h2>
-        <p className="text-sm text-gray-500 dark:text-white">
-          Use your company email to receive a verification link
+        <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
+          Sign In
+        </h2>
+        <p className="text-sm text-gray-500 dark:text-gray-300">
+          Use your work email to receive a secure sign-in link
         </p>
       </div>
 
       {error && (
-        <div role="alert" className="alert alert-error alert-outline mb-4">
-          <span>{error}</span>
+        <div className="bg-red-100 text-red-700 p-3 text-sm rounded border border-red-300">
+          {error}
         </div>
       )}
 
       <div>
         <label
           htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-1 dark:text-white"
+          className="block text-sm font-medium text-gray-700 dark:text-white mb-1"
         >
           Work Email
         </label>
         <input
           type="email"
+          inputMode="email"
+          autoComplete="email"
           name="email"
           id="email"
           required
@@ -105,13 +114,15 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={loading || sent}
-        className={`dark:text-white cursor-pointer w-full py-2 px-4 font-medium rounded-md transition flex justify-center items-center gap-2 ${
+        className={`w-full py-2 px-4 font-medium rounded-md transition flex justify-center items-center gap-2 ${
           sent
             ? "bg-green-600 hover:bg-green-700 text-white"
             : "bg-blue-800 hover:bg-blue-900 text-white"
         }`}
       >
-        {loading && <span className="loading loading-spinner text-info"></span>}
+        {loading && (
+          <span className="loading loading-spinner text-white h-4 w-4" />
+        )}
 
         {sent ? (
           <>
@@ -140,3 +151,4 @@ export default function LoginForm() {
     </form>
   );
 }
+

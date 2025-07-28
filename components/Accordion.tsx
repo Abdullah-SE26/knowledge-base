@@ -48,7 +48,7 @@ const FaqAccordion = () => {
         <AccordionContent>
           If you are registering for the first time, the verification email may take some time to deliver, please wait for some time. <br/>
           If you still dont see an email please check the Spam or the All Mail sections. <br/>
-          Double check your entered email aswell, only company registered emails are allowed.
+          Re-check your entered email, only company registered emails are allowed.
         </AccordionContent>
       </AccordionItem>
     </Accordion>
