@@ -1,12 +1,26 @@
-import Link from "next/link";
+import {
+  Navbar,
+  NavbarCollapse,
+  NavbarLink,
+  NavbarToggle,
+} from "flowbite-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import LogoutButton from "./LogoutButton";
-import { LogOut, ChevronDown,UserCog, Home,  FileTextIcon, HeadsetIcon, GlobeIcon, } from "lucide-react";
+import {
+  LogOut,
+  ChevronDown,
+  UserCog,
+  Home,
+  FileTextIcon,
+  HeadsetIcon,
+  GlobeIcon,
+} from "lucide-react";
 import ModeToggleWrapper from "./ModeTogglerWrapper";
 import LogoSwitcher from "./LogoSwitcher";
+import Link from "next/link";
 
-export default async function Navbar() {
+export default async function navbar() {
   const session = await getServerSession(authOptions);
 
   function getDisplayName(email: string | null | undefined): string {
@@ -25,78 +39,84 @@ export default async function Navbar() {
 
   return (
     <header className="py-4 bg-white dark:bg-gray-900 shadow">
-  <nav
-    className="mx-auto max-w-6xl px-6 flex items-center justify-between"
-    aria-label="Main navigation"
-  >
-    {/* Logo */}
-    <div className="flex-shrink-0">
-      <LogoSwitcher />
-    </div>
+      <Navbar
+        fluid
+        rounded
+        className="mx-auto max-w-6xl px-6"
+        aria-label="Main navigation"
+      >
+        {/* Left: Logo + Toggle */}
+        <div className="flex items-center gap-4">
+          <LogoSwitcher />
+          <NavbarToggle />
+        </div>
 
-    {/* Links */}
-    <div className="flex gap-6  text-md font-medium text-gray-700 dark:text-gray-200">
+        {/* Center: Nav Links */}
+        <NavbarCollapse>
+          <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center text-md font-medium text-gray-700 dark:text-gray-200">
+            <NavbarLink href="/" title="Home" className="flex items-center gap-2">
+              <Home className="w-5 h-5 md:hidden" />
+              <span>Home</span>
+            </NavbarLink>
 
-      <Link href="/" title="Home" className="flex items-center gap-1">
-      <span className='hidden md:inline'>Home</span>
-      <Home className='inline mt-2 ml-2 md:hidden w-5 h-5'/>
-      </Link>
+            <NavbarLink href="/articles" title="All Articles" className="flex items-center gap-2">
+              <FileTextIcon className="w-5 h-5 md:hidden" />
+              <span>Articles</span>
+            </NavbarLink>
 
-      <Link href="/articles" title="All Articles" className="flex items-center gap-1">
-      <span className='hidden md:inline'>Articles</span>
-      <FileTextIcon className='inline mt-2 md:hidden w-5 h-5'/>
-      </Link>
+            <NavbarLink href="#" title="Visit IT-Help Desk" className="flex items-center gap-2">
+              <HeadsetIcon className="w-5 h-5 md:hidden" />
+              <span>Help Desk</span>
+            </NavbarLink>
 
-      <Link href="#" title="Visit IT-Help Desk" className="flex items-center gap-1" >
-      <span className='hidden md:inline'>Help Desk</span>
-      <HeadsetIcon className='inline mt-2 md:hidden w-5 h-5'/>
-      </Link>
+            <NavbarLink
+              href="https://mawaridhi.com"
+              target="_blank"
+              title="Visit mawaridhi.com"
+              className="flex items-center gap-2"
+            >
+              <GlobeIcon className="w-5 h-5 md:hidden" />
+              <span>Visit Mawaridhi</span>
+            </NavbarLink>
+          </div>
+        </NavbarCollapse>
 
-      <Link href="https://mawaridhi.com" target="_blank" title="Visit Mawaridhi.com" className="flex items-center gap-1 mr-3">
-        <span className='hidden md:inline'>Visit Mawaridhi</span>
-        <GlobeIcon className='inline mt-2 md:hidden w-5 h-5'/>
-      </Link>
-
-    </div>
-
-    {/* Theme + Auth */}
-    <div className="flex gap-3  items-center">
-      <ModeToggleWrapper />
-      {session?.user ? (
-        <details className="relative dropdown">
-          <summary className="btn bg-blue-800 text-white rounded-md px-3 py-1 cursor-pointer flex items-center gap-1">
-            Welcome, {displayName}
-            <ChevronDown size={16} />
-          </summary>
-        <ul className="absolute right-1 mt-1 p-2 shadow menu dropdown-content rounded-md z-50 w-44 bg-white dark:bg-gray-800 text-sm text-black dark:text-white">
-          <li>
-            <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 w-full rounded-md text-left">
-              <LogOut size={16} />
-              <LogoutButton />
-            </div>
-          </li>
-          <li>
-            <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 w-full rounded-md text-left">
-              <UserCog size={16} />
-              <Link href="/dashboard" className="w-full">
-                Admin Dashboard
-              </Link>
-            </div>
-          </li>
-        </ul>
-    </details>
-    
-      ) : (
-        <Link
-          href="/login"
-          className="hover:bg-blue-900 sm:text-sm sm:py-1 sm:px-2 rounded-md py-2 px-3 bg-blue-800 text-white cursor-pointer"
-        >
-          Login
-        </Link>
-      )}
-    </div>
-  </nav>
-</header>
-
+        {/* Right: Theme Toggle + Auth */}
+        <div className="flex items-center gap-4">
+          <ModeToggleWrapper />
+          {session?.user ? (
+            <details className="relative dropdown">
+              <summary className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-md cursor-pointer appearance-none list-none [&::-webkit-details-marker]:hidden">
+                Welcome, {displayName}
+                <ChevronDown size={16} />
+              </summary>
+              <ul className="absolute right-0 mt-2 p-2 shadow rounded-md z-50 w-44 bg-white dark:bg-gray-800 text-sm text-black dark:text-white">
+                <li>
+                  <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 rounded-md text-left">
+                    <LogOut size={16} />
+                    <LogoutButton />
+                  </div>
+                </li>
+                <li>
+                  <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 rounded-md text-left">
+                    <UserCog size={16} />
+                    <Link href="/dashboard" className="w-full">
+                      Admin Dashboard
+                    </Link>
+                  </div>
+                </li>
+              </ul>
+            </details>
+          ) : (
+            <Link
+              href="/login"
+              className="px-4 py-2 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition"
+            >
+              Login
+            </Link>
+          )}
+        </div>
+      </Navbar>
+    </header>
   );
 }
