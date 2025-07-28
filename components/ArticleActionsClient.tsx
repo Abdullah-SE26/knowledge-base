@@ -20,18 +20,16 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
   const [downvotes, setDownvotes] = useState(initialDownvotes);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(null); // track user's vote
+  const [userVote, setUserVote] = useState<"upvote" | "downvote" | null>(null);
 
-  // Keep refs of previous counts for rollback on failure
   const prevUpvotes = useRef(upvotes);
   const prevDownvotes = useRef(downvotes);
   const prevUserVote = useRef(userVote);
 
   const handleVote = async (type: "upvote" | "downvote") => {
-    if (loading || userVote === type) return; // prevent re-voting the same type
+    if (loading || userVote === type) return;
     setLoading(true);
 
-    // Save current state for rollback
     prevUpvotes.current = upvotes;
     prevDownvotes.current = downvotes;
     prevUserVote.current = userVote;
@@ -44,7 +42,6 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
       setDownvotes((prev) => prev + 1);
       if (userVote === "upvote") setUpvotes((prev) => prev - 1);
     }
-
     setUserVote(type);
 
     try {
@@ -57,12 +54,11 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
 
       if (!res.ok) throw new Error("Vote request failed");
 
-      const data = await res.json();
+      const data: { upvotes: number; downvotes: number } = await res.json();
       setUpvotes(data.upvotes);
       setDownvotes(data.downvotes);
     } catch (err) {
       console.error("Vote failed", err);
-      // Rollback optimistic update on failure
       setUpvotes(prevUpvotes.current);
       setDownvotes(prevDownvotes.current);
       setUserVote(prevUserVote.current);
@@ -72,9 +68,13 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/articles/${articleId}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 5000);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${window.location.origin}/articles/${articleId}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 5000);
+    } else {
+      alert("Clipboard not supported");
+    }
   };
 
   return (
@@ -83,6 +83,7 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
         onClick={() => handleVote("upvote")}
         disabled={loading}
         aria-label={title ? `Upvote article titled ${title}` : "Upvote article"}
+        aria-pressed={userVote === "upvote"}
         className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 ${
           userVote === "upvote"
             ? "bg-green-500 text-white"
@@ -97,6 +98,7 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
         onClick={() => handleVote("downvote")}
         disabled={loading}
         aria-label={title ? `Downvote article titled ${title}` : "Downvote article"}
+        aria-pressed={userVote === "downvote"}
         className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 ${
           userVote === "downvote"
             ? "bg-red-500 text-white"

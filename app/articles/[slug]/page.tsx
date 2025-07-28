@@ -21,6 +21,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   | (IArticle & { _id: Types.ObjectId })
   | null;
 
+
+
+
   if (!article) {
     notFound();
   }

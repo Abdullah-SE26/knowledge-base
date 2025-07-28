@@ -6,6 +6,8 @@ import connectMongoDB from "@/lib/mongodb";
 import Article, { IArticle } from "@/models/Article";
 import { Types } from "mongoose";
 import ArticlesSearchClient from "@/components/ArticlesSearchClient";
+import { format } from "date-fns";
+
 
 export default async function ArticlesPage({
   searchParams,
@@ -37,25 +39,26 @@ export default async function ArticlesPage({
       return titleMatch || subjectMatch || tagMatch;
     });
 
-  const serialized = filteredArticles.map((article) => ({
-    _id: article._id.toString(),
-    slug: article.slug,
-    title: article.title,
-    subject: article.subject,
-    content: article.content,
-    tags: article.tags || [],
-    attachments: article.attachments || [],
-    createdAt: article.createdAt ? article.createdAt.toISOString() : "",
-    createdAtFormatted: article.createdAt
-      ? new Date(article.createdAt).toLocaleDateString("en-GB")
-      : "",
-    updatedAt: article.updatedAt ? article.updatedAt.toISOString() : "",
-    updatedAtFormatted: article.updatedAt
-      ? new Date(article.updatedAt).toLocaleDateString("en-GB")
-      : "",
-    upvotesCount: article.upvotes?.length ?? 0,
-    downvotesCount: article.downvotes?.length ?? 0,
-  }));
+ const serialized = filteredArticles.map((article) => ({
+  _id: article._id.toString(),
+  slug: article.slug,
+  title: article.title,
+  subject: article.subject,
+  content: article.content,
+  tags: article.tags || [],
+  attachments: article.attachments || [],
+  createdAt: article.createdAt ? article.createdAt.toISOString() : "",
+  createdAtFormatted: article.createdAt
+    ? format(new Date(article.createdAt), "MMMM d, yyyy")
+    : "",
+  updatedAt: article.updatedAt ? article.updatedAt.toISOString() : "",
+  updatedAtFormatted: article.updatedAt
+    ? format(new Date(article.updatedAt), "MMMM d, yyyy")
+    : "",
+  upvotesCount: article.upvotes?.length ?? 0,
+  downvotesCount: article.downvotes?.length ?? 0,
+}));
+
 
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
