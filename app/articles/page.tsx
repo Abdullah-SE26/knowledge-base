@@ -7,7 +7,12 @@ import Article, { IArticle } from "@/models/Article";
 import { Types } from "mongoose";
 import ArticlesSearchClient from "@/components/ArticlesSearchClient";
 import { format } from "date-fns";
+import { Metadata } from "next";
 
+export const metadata: Metadata = {
+  title: "All Articles",
+  description: "Search for articles",
+};
 
 export default async function ArticlesPage({
   searchParams,

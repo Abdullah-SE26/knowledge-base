@@ -64,7 +64,7 @@ export default async function navbar() {
               <span>Articles</span>
             </NavbarLink>
 
-            <NavbarLink href="#" title="Visit IT-Help Desk" className="flex items-center gap-2">
+            <NavbarLink href="https://helpdesk.mawaridhi.com/support/home" title="Visit IT-Help Desk" className="flex items-center gap-2">
               <HeadsetIcon className="w-5 h-5 md:hidden" />
               <span>Help Desk</span>
             </NavbarLink>

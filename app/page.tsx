@@ -2,6 +2,13 @@ import connectMongoDB from "@/lib/mongodb";
 import Article, { IArticle } from "@/models/Article";
 import { Types } from "mongoose";
 import HomeClient from "@/components/HomeClient"; // <-- new client component
+import { Metadata } from "next";
+
+
+export const metadata: Metadata = {
+  title: "Mawaridhi-Knowledge Home",
+  description: "Internal Knowledge Base for Mawaridhi",
+};
 
 export default async function Home() {
   await connectMongoDB();

@@ -30,7 +30,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onSearch }) => {
         <h5 className="text-sm text-gray-600 dark:text-gray-400">
           Can’t find the article you’re looking for?{" "}
           <a
-            href="/help-desk"
+            href="https://helpdesk.mawaridhi.com/support/home"
             className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 transition"
           >
             Visit IT Help Desk

@@ -8,6 +8,7 @@ import BackButton from "@/components/BackButton";
 import { FileText, Image as ImageIcon, Link as LinkIcon, FileSignature } from "lucide-react";
 import { Types } from "mongoose";
 
+
 interface ArticlePageProps {
   params: {
     slug: string;
@@ -45,9 +46,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   return (
     <main className="max-w-3xl mx-auto py-12 px-4">
-      <BackButton />
-      <h1 className="text-4xl font-bold mb-2 text-center">{safeArticle.title}</h1>
-      <h2 className="text-lg text-gray-600 mb-4 text-center dark:text-white">{safeArticle.subject}</h2>
+      <div className='w-full flex justify-start fixed top-40 left-83 z-50'>
+        <BackButton />
+      </div>
+      
+      <h1 className="text-4xl font-bold mb-15 mt-[-25] text-center">{safeArticle.title}</h1>
+      <h2 className="text-lg text-gray-600 mb-4 dark:text-white">Subject: {safeArticle.subject}</h2>
 
       <article className="prose prose-lg mt-6">{safeArticle.content}</article>
 

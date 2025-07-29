@@ -39,7 +39,7 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
       async sendVerificationRequest({ identifier, url, provider }) {
-        const logoUrl = "https://knowledge-base-two-amber.vercel.app/logo.png";
+        const logoUrl = "https://mawaridhi-kb.vercel.app/logo.png";
 
         const html = `
           <div style="background: #f9fafb; padding: 30px; font-family: Arial, sans-serif;">
