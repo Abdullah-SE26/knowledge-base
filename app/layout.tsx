@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import '@fortawesome/fontawesome-free/css/all.min.css';
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import { Providers } from "./providers";
@@ -8,15 +7,22 @@ import ThemeProviderWrapper from "@/components/ThemeProviderWrapper";
 import Footer from "@/components/Footer";
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import PerformanceMonitor from '@/components/PerformanceMonitor';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: 'swap',
+  preload: true,
+  fallback: ['system-ui', 'arial'],
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: 'swap',
+  preload: true,
+  fallback: ['ui-monospace', 'monospace'],
 });
 
 export const metadata: Metadata = {
@@ -42,6 +48,7 @@ export default function RootLayout({
               {children}
               <Analytics/>
               <SpeedInsights />
+              <PerformanceMonitor />
               <Footer/>
             </Providers>
           </div>
