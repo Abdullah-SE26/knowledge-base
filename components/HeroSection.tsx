@@ -32,6 +32,8 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onSearch }) => {
           <a
             href="https://helpdesk.mawaridhi.com/support/home"
             className="text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300 transition"
+            target="_blank"
+            rel="noopener noreferrer"
           >
             Visit IT Help Desk
           </a>{" "}
