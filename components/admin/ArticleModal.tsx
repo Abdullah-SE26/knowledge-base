@@ -1,22 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import React, { useState, useEffect } from "react";
+import { useForm, Controller } from "react-hook-form";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Info } from 'lucide-react';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Info } from "lucide-react";
 
-import Tags from '@yaireo/tagify/dist/react.tagify';
-import '@yaireo/tagify/dist/tagify.css';
+import Tags from "@yaireo/tagify/dist/react.tagify";
+import "@yaireo/tagify/dist/tagify.css";
 
-import CustomEditor from '@/components/CustomEditor';
+import CustomEditor from "@/components/CustomEditor";
 
 interface Tag {
   value: string;
@@ -58,24 +58,39 @@ export default function ArticleModal({
     register,
     control,
     handleSubmit,
-    setValue,
+    reset,
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
-      title: initialData?.title || '',
-      subject: initialData?.subject || '',
+      title: initialData?.title || "",
+      subject: initialData?.subject || "",
       tags: initialData?.tags || [],
-      content: initialData?.content || '',
+      content: initialData?.content || "",
     },
   });
 
   const [tagSuggestions] = useState<string[]>([
-    'news',
-    'tech',
-    'webdev',
-    'tutorial',
-    'design',
+    "news",
+    "tech",
+    "webdev",
+    "tutorial",
+    "design",
   ]);
+
+  // Debug initialData.content to confirm it's loaded properly
+  useEffect(() => {
+    console.log("[ArticleModal] initialData.content:", initialData?.content);
+  }, [initialData]);
+
+  // Reset form whenever initialData changes (including content)
+  useEffect(() => {
+    reset({
+      title: initialData?.title || "",
+      subject: initialData?.subject || "",
+      tags: initialData?.tags || [],
+      content: initialData?.content || "",
+    });
+  }, [initialData, reset]);
 
   const onFormSubmit = (data: FormValues) => {
     onSubmit({
@@ -92,13 +107,13 @@ export default function ArticleModal({
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>
-            {initialData ? 'Edit Article' : 'Create New Article'}
+            {initialData ? "Edit Article" : "Create New Article"}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
           <div>
             <Label>Title *</Label>
-            <Input {...register('title', { required: 'Title is required' })} />
+            <Input {...register("title", { required: "Title is required" })} />
             {errors.title && (
               <p className="text-sm text-red-600">{errors.title.message}</p>
             )}
@@ -107,7 +122,7 @@ export default function ArticleModal({
           <div>
             <Label>Subject *</Label>
             <Input
-              {...register('subject', { required: 'Subject is required' })}
+              {...register("subject", { required: "Subject is required" })}
             />
             {errors.subject && (
               <p className="text-sm text-red-600">{errors.subject.message}</p>
@@ -132,14 +147,12 @@ export default function ArticleModal({
                   defaultValue={JSON.stringify(value)}
                   onChange={(e) => {
                     try {
-                      const value = e.target.value;
-                      const tags = value ? JSON.parse(value) : [];
-                      // Do something with tags
+                      const tags = JSON.parse(e.detail.value);
+                      onChange(tags);
                     } catch (err) {
                       console.error("Invalid tag JSON:", err);
                     }
                   }}
-
                 />
               )}
             />
@@ -150,13 +163,16 @@ export default function ArticleModal({
             <Controller
               name="content"
               control={control}
-              rules={{ required: 'Content is required' }}
+              rules={{ required: "Content is required" }}
               render={({ field }) => (
-                <div className="border rounded p-2 min-h-[200px]">
-                  <CustomEditor value={field.value} onChange={field.onChange} />
-                </div>
+                <CustomEditor
+                  key={initialData?.content || 'new'} // force remount if content changes
+                  value={field.value}
+                  onChange={field.onChange}
+                />
               )}
             />
+
             {errors.content && (
               <p className="text-sm text-red-600">{errors.content.message}</p>
             )}
@@ -164,7 +180,7 @@ export default function ArticleModal({
 
           <div>
             <Label>Attachments</Label>
-            <Input type="file" multiple {...register('attachment')} />
+            <Input type="file" multiple {...register("attachment")} />
           </div>
 
           <div className="flex justify-end space-x-2">

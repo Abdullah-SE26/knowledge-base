@@ -182,7 +182,7 @@ export async function GET(req: Request) {
 
   try {
     const articles = await Article.find({})
-      .select("title slug subject createdAt upvotes downvotes tags")
+      .select("title slug subject createdAt upvotes downvotes tags content")
       .sort({ createdAt: -1 })
       .lean();
 
