@@ -7,7 +7,6 @@ export const metadata: Metadata = {
 };
 
 import StatsSection from "@/components/admin/StatsSection";
-import AdminArticlesManager from "@/components/admin/AdminArticleManager";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
 import GraphClientWrapper from "@/components/admin/GraphClientWrapper";
@@ -36,8 +35,6 @@ export default async function AdminDashboardPage() {
       {/* Graphs */}
       <GraphClientWrapper />
 
-      {/* Articles CRUD */}
-      <AdminArticlesManager/>
     </div>
   );
 }

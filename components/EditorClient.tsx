@@ -1,38 +1,42 @@
 "use client";
 
-import { useEditor, EditorContent } from "@tiptap/react";
+import React, { useEffect } from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { useEffect } from "react";
 
-interface EditorClientProps {
-  content?: string;
-  onUpdate?: (content: string) => void;
+interface Props {
+  content: string;
+  onEditorReady?: (editor: any) => void;
 }
 
-export default function EditorClient({ content = "", onUpdate }: EditorClientProps) {
+export default function TiptapEditor({ content, onEditorReady }: Props) {
   const editor = useEditor({
     extensions: [StarterKit],
-    content,
-    onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      if (onUpdate) onUpdate(html);
+    content: "", // initially empty
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class:
+          "prose dark:prose-invert min-h-[200px] outline-none bg-white dark:bg-gray-800 p-2 rounded",
+      },
     },
   });
 
-  // Optional: sync content if prop changes
+  // Set content when editor is ready
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (editor && content) {
       editor.commands.setContent(content);
     }
-  }, [content, editor]);
+  }, [editor, content]);
 
-  if (!editor) {
-    return <div>Loading editor...</div>;
-  }
+  // Notify parent with editor instance
+  useEffect(() => {
+    if (editor && onEditorReady) {
+      onEditorReady(editor);
+    }
+  }, [editor, onEditorReady]);
 
-  return (
-    <div className="border rounded p-2 min-h-[200px]">
-      <EditorContent editor={editor} />
-    </div>
-  );
+  if (!editor) return <p>Loading editor...</p>;
+
+  return <EditorContent editor={editor} />;
 }

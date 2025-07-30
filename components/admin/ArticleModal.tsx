@@ -1,151 +1,168 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Info } from "lucide-react";
+
+import Tags from "@yaireo/tagify/dist/react.tagify";
+import "@yaireo/tagify/dist/tagify.css";
+
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
+interface Tag {
+  value: string;
+}
+
 interface ArticleModalProps {
-  isOpen: boolean;
+  open: boolean;
   onClose: () => void;
-  onSave: (data: { title: string; subject: string; content: string }) => Promise<void>;
-  initialData?: {
+  onSubmit: (data: {
     title: string;
     subject: string;
     content: string;
+    tags: string[];
+    attachments: File[];
+  }) => Promise<void> | void;
+  initialData?: {
+    title?: string;
+    subject?: string;
+    content?: string;
+    tags?: Tag[];
   };
 }
 
+interface FormValues {
+  title: string;
+  subject: string;
+  tags: Tag[];
+  content: string;
+  attachment?: FileList;
+}
+
 export default function ArticleModal({
-  isOpen,
+  open,
   onClose,
-  onSave,
+  onSubmit,
   initialData,
 }: ArticleModalProps) {
- const editor = useEditor({
-  extensions: [StarterKit],
-  content: initialData?.content || "",
-  immediatelyRender: false,
-});;
+  const {
+    register,
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<FormValues>({
+    defaultValues: {
+      title: initialData?.title || "",
+      subject: initialData?.subject || "",
+      tags: initialData?.tags || [],
+      content: initialData?.content || "",
+    },
+  });
 
-  const [title, setTitle] = useState(initialData?.title || "");
-  const [subject, setSubject] = useState(initialData?.subject || "");
-  const [saving, setSaving] = useState(false);
+  const [tagSuggestions] = useState<string[]>([
+    "news",
+    "tech",
+    "webdev",
+    "tutorial",
+    "design",
+  ]);
 
-  // Reset form when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setTitle("");
-      setSubject("");
-      editor?.commands.setContent("");
-    }
-  }, [isOpen, editor]);
+  // Initialize tiptap editor
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: initialData?.content || "",
+    immediatelyRender: false,
+    onUpdate: ({ editor }) => {
+      setValue("content", editor.getHTML(), { shouldValidate: true });
+    },
+  });
 
-  // Update editor and inputs when initialData changes (edit mode)
-  useEffect(() => {
-    if (initialData) {
-      setTitle(initialData.title);
-      setSubject(initialData.subject);
-      editor?.commands.setContent(initialData.content);
-    }
-  }, [initialData, editor]);
-
-  // Close on Escape key
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && isOpen) {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!editor) return;
-
-    setSaving(true);
-    const content = editor.getHTML();
-
-    if (!content || content === "<p></p>") {
-      alert("Content cannot be empty");
-      setSaving(false);
-      return;
-    }
-
-    try {
-      await onSave({ title, subject, content });
-      onClose();
-    } catch (error) {
-      alert("Failed to save article");
-    } finally {
-      setSaving(false);
-    }
-  }
+  const onFormSubmit = (data: FormValues) => {
+    onSubmit({
+      title: data.title,
+      subject: data.subject,
+      content: data.content,
+      tags: data.tags.map((tag) => tag.value),
+      attachments: data.attachment ? Array.from(data.attachment) : [],
+    });
+  };
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={onClose}
-    >
-      <form
-        onClick={(e) => e.stopPropagation()}
-        onSubmit={handleSubmit}
-        className="bg-white dark:bg-gray-900 p-6 rounded shadow-lg w-full max-w-3xl max-h-[90vh] overflow-auto"
-      >
-        <h2 className="text-2xl mb-4">
-          {initialData ? "Edit Article" : "Create New Article"}
-        </h2>
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>{initialData ? "Edit Article" : "Create New Article"}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+          <div>
+            <Label>Title *</Label>
+            <Input {...register("title", { required: "Title is required" })} />
+            {errors.title && (
+              <p className="text-sm text-red-600">{errors.title.message}</p>
+            )}
+          </div>
 
-        <label className="block mb-2 font-semibold" htmlFor="title">
-          Title
-        </label>
-        <input
-          id="title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="w-full mb-4 px-3 py-2 border rounded dark:bg-gray-800 dark:text-white"
-        />
+          <div>
+            <Label>Subject *</Label>
+            <Input {...register("subject", { required: "Subject is required" })} />
+            {errors.subject && (
+              <p className="text-sm text-red-600">{errors.subject.message}</p>
+            )}
+          </div>
 
-        <label className="block mb-2 font-semibold" htmlFor="subject">
-          Subject
-        </label>
-        <input
-          id="subject"
-          type="text"
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          className="w-full mb-4 px-3 py-2 border rounded dark:bg-gray-800 dark:text-white"
-        />
+          <div>
+            <Label className="flex items-center gap-1">
+              <span title="Press Enter to create a tag">
+                Tags <Info size={14} />
+              </span>
+            </Label>
+            <Controller
+              name="tags"
+              control={control}
+              render={({ field: { onChange, value } }) => (
+                <Tags
+                  settings={{ whitelist: tagSuggestions, dropdown: { enabled: 0 } }}
+                  defaultValue={JSON.stringify(value)}
+                  onChange={(e) => onChange(JSON.parse(e.detail.value))}
+                />
+              )}
+            />
+          </div>
 
-        <label className="block mb-2 font-semibold">Content</label>
-        <div className="border rounded mb-4 p-2 bg-white dark:bg-gray-800">
-          <EditorContent editor={editor} />
-        </div>
+          <div>
+            <Label>Content *</Label>
+            <div className="border rounded p-2 min-h-[200px]">
+              {editor ? <EditorContent editor={editor} /> : <p>Loading editor...</p>}
+            </div>
+            {errors.content && (
+              <p className="text-sm text-red-600">{errors.content.message}</p>
+            )}
+          </div>
 
-        <div className="flex justify-end space-x-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 rounded border"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-        </div>
-      </form>
-    </div>
+          <div>
+            <Label>Attachments</Label>
+            <Input type="file" multiple {...register("attachment")} />
+          </div>
+
+          <div className="flex justify-end space-x-2">
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">Save</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
