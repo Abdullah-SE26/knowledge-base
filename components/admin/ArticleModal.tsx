@@ -1,23 +1,22 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import React, { useState } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Info } from 'lucide-react';
 
-import Tags from "@yaireo/tagify/dist/react.tagify";
-import "@yaireo/tagify/dist/tagify.css";
+import Tags from '@yaireo/tagify/dist/react.tagify';
+import '@yaireo/tagify/dist/tagify.css';
 
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
+import CustomEditor from '@/components/CustomEditor';
 
 interface Tag {
   value: string;
@@ -63,30 +62,20 @@ export default function ArticleModal({
     formState: { errors },
   } = useForm<FormValues>({
     defaultValues: {
-      title: initialData?.title || "",
-      subject: initialData?.subject || "",
+      title: initialData?.title || '',
+      subject: initialData?.subject || '',
       tags: initialData?.tags || [],
-      content: initialData?.content || "",
+      content: initialData?.content || '',
     },
   });
 
   const [tagSuggestions] = useState<string[]>([
-    "news",
-    "tech",
-    "webdev",
-    "tutorial",
-    "design",
+    'news',
+    'tech',
+    'webdev',
+    'tutorial',
+    'design',
   ]);
-
-  // Initialize tiptap editor
-  const editor = useEditor({
-    extensions: [StarterKit],
-    content: initialData?.content || "",
-    immediatelyRender: false,
-    onUpdate: ({ editor }) => {
-      setValue("content", editor.getHTML(), { shouldValidate: true });
-    },
-  });
 
   const onFormSubmit = (data: FormValues) => {
     onSubmit({
@@ -102,12 +91,14 @@ export default function ArticleModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
         <DialogHeader>
-          <DialogTitle>{initialData ? "Edit Article" : "Create New Article"}</DialogTitle>
+          <DialogTitle>
+            {initialData ? 'Edit Article' : 'Create New Article'}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
           <div>
             <Label>Title *</Label>
-            <Input {...register("title", { required: "Title is required" })} />
+            <Input {...register('title', { required: 'Title is required' })} />
             {errors.title && (
               <p className="text-sm text-red-600">{errors.title.message}</p>
             )}
@@ -115,7 +106,9 @@ export default function ArticleModal({
 
           <div>
             <Label>Subject *</Label>
-            <Input {...register("subject", { required: "Subject is required" })} />
+            <Input
+              {...register('subject', { required: 'Subject is required' })}
+            />
             {errors.subject && (
               <p className="text-sm text-red-600">{errors.subject.message}</p>
             )}
@@ -132,9 +125,21 @@ export default function ArticleModal({
               control={control}
               render={({ field: { onChange, value } }) => (
                 <Tags
-                  settings={{ whitelist: tagSuggestions, dropdown: { enabled: 0 } }}
+                  settings={{
+                    whitelist: tagSuggestions,
+                    dropdown: { enabled: 0 },
+                  }}
                   defaultValue={JSON.stringify(value)}
-                  onChange={(e) => onChange(JSON.parse(e.detail.value))}
+                  onChange={(e) => {
+                    try {
+                      const value = e.target.value;
+                      const tags = value ? JSON.parse(value) : [];
+                      // Do something with tags
+                    } catch (err) {
+                      console.error("Invalid tag JSON:", err);
+                    }
+                  }}
+
                 />
               )}
             />
@@ -142,9 +147,16 @@ export default function ArticleModal({
 
           <div>
             <Label>Content *</Label>
-            <div className="border rounded p-2 min-h-[200px]">
-              {editor ? <EditorContent editor={editor} /> : <p>Loading editor...</p>}
-            </div>
+            <Controller
+              name="content"
+              control={control}
+              rules={{ required: 'Content is required' }}
+              render={({ field }) => (
+                <div className="border rounded p-2 min-h-[200px]">
+                  <CustomEditor value={field.value} onChange={field.onChange} />
+                </div>
+              )}
+            />
             {errors.content && (
               <p className="text-sm text-red-600">{errors.content.message}</p>
             )}
@@ -152,7 +164,7 @@ export default function ArticleModal({
 
           <div>
             <Label>Attachments</Label>
-            <Input type="file" multiple {...register("attachment")} />
+            <Input type="file" multiple {...register('attachment')} />
           </div>
 
           <div className="flex justify-end space-x-2">
