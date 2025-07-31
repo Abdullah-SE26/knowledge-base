@@ -82,11 +82,12 @@ export default function AdminArticlesManager() {
     // Create FormData
     const formData = new FormData();
     formData.append("title", data.title);
-    formData.append("subject", data.subject);
+    formData.append("subject", data.subject || "");
     formData.append("content", data.content);
-    data.tags.forEach((tag) => formData.append("tags", tag));
-
-    data.attachments.forEach((file) => formData.append("attachments", file));
+    data.tags.forEach((tag) => formData.append("tags", tag.value || tag));
+    if (data.attachments && data.attachments.length > 0) {
+      data.attachments.forEach((file) => formData.append("attachments", file));
+    }
 
     console.log("[handleSave] Sending data:", data);
     console.log(`[handleSave] Sending ${method} request to ${url}`);
@@ -98,11 +99,25 @@ export default function AdminArticlesManager() {
       });
 
       console.log(`[handleSave] Response status:`, res.status);
-      const json = await res.json();
-      console.log(`[handleSave] Response JSON:`, json);
+
+      // Only try to parse JSON if response has content-type json
+      const contentType = res.headers.get("content-type");
+      let json = null;
+      if (contentType && contentType.includes("application/json")) {
+        try {
+          json = await res.json();
+          console.log(`[handleSave] Response JSON:`, json);
+        } catch (parseErr) {
+          console.error("[handleSave] JSON parse error:", parseErr);
+          throw new Error("Invalid JSON response from server");
+        }
+      } else {
+        console.warn("[handleSave] Response is not JSON, skipping JSON parse");
+      }
 
       if (!res.ok) {
-        throw new Error(json.error || "Failed to save");
+        const errMsg = json?.error || res.statusText || "Failed to save";
+        throw new Error(errMsg);
       }
 
       setModalOpen(false);

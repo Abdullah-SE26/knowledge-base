@@ -23,11 +23,7 @@ async function parseFormData(req: Request): Promise<{
   files: ParsedFile[];
 }> {
   return new Promise((resolve, reject) => {
-    const headers = Object.fromEntries(req.headers.entries()) as Record<
-      string,
-      string
-    >;
-
+    const headers = Object.fromEntries(req.headers.entries()) as Record<string, string>;
     const busboy = Busboy({ headers });
 
     const fields: Record<string, string | string[]> = {};
@@ -107,10 +103,8 @@ async function parseFormData(req: Request): Promise<{
   });
 }
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+// POST: Create new article
+export async function POST(req: Request) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
 
@@ -120,12 +114,12 @@ export async function PUT(
     const { fields, files } = await parseFormData(req);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
-    const content = Array.isArray(fields.content)
-      ? fields.content[0]
-      : fields.content;
-    const subject = Array.isArray(fields.subject)
-      ? fields.subject[0]
-      : fields.subject || "";
+    const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
+    const subject = Array.isArray(fields.subject) ? fields.subject[0] : fields.subject || "";
+
+    if (!title || !content) {
+      return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
+    }
 
     // Normalize tags to string[]
     type TagLike = string | { value?: string };
@@ -134,7 +128,6 @@ export async function PUT(
     let tags: string[] = [];
 
     if (typeof tagsField === "string") {
-      // Sometimes it's a JSON stringified array or just a string
       try {
         const parsed = JSON.parse(tagsField);
         if (Array.isArray(parsed)) {
@@ -178,38 +171,47 @@ export async function PUT(
     }
 
     const attachments = files.map((file) => ({
-      type: "pdf", // adjust mimeType detection here if needed
+      type: file.mimeType || "unknown",
       url: `/uploads/${path.basename(file.filepath)}`,
       name: file.filename,
     }));
 
-    // Update with tags and push attachments
-    const updatedArticle = await Article.findByIdAndUpdate(
-      params.id,
-      {
-        title,
-        content,
-        subject,
-        tags,
-        $push: { attachments: { $each: attachments } },
-      },
-      { new: true }
-    );
+    // Generate slug from title
+    const generateSlug = (str: string) =>
+      str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
-    if (!updatedArticle) {
-      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    const slug = generateSlug(title);
+
+    // Check slug uniqueness
+    const existing = await Article.findOne({ slug });
+    if (existing) {
+      return NextResponse.json({ error: "Slug already exists" }, { status: 400 });
     }
 
-    return NextResponse.json(updatedArticle, { status: 200 });
+    const newArticle = new Article({
+      title,
+      slug,
+      subject,
+      content,
+      tags,
+      attachments,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await newArticle.save();
+
+    return NextResponse.json(newArticle, { status: 201 });
   } catch (err) {
-    console.error("Update error:", err);
+    console.error("Create article error:", err);
     return NextResponse.json(
-      { error: "Failed to update article" },
+      { error: "Failed to create article" },
       { status: 500 }
     );
   }
 }
 
+// GET: Fetch all articles
 export async function GET(req: Request) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;

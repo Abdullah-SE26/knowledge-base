@@ -34,8 +34,7 @@ async function parseFormData(req: Request): Promise<{
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    busboy.on("field", (fieldname, val) => {
-        console.log(`[busboy] field: ${fieldname} =`, val);
+    busboy.on("field", (fieldname: string, val: string) => {
       if (fields[fieldname]) {
         if (Array.isArray(fields[fieldname])) {
           (fields[fieldname] as string[]).push(val);
@@ -47,44 +46,67 @@ async function parseFormData(req: Request): Promise<{
       }
     });
 
-    busboy.on("file", (fieldname, file, info) => {
-      const { filename, mimeType } = info;
-      const filepath = path.join(uploadDir, `${Date.now()}-${filename}`);
+    busboy.on(
+      "file",
+      (
+        fieldname: string,
+        file: NodeJS.ReadableStream,
+        info: { filename: string; mimeType: string }
+      ) => {
+        const { filename, mimeType } = info;
+        const filepath = path.join(uploadDir, `${Date.now()}-${filename}`);
 
-      const writeStream = fs.createWriteStream(filepath);
-      file.pipe(writeStream);
+        const writeStream = fs.createWriteStream(filepath);
+        file.pipe(writeStream);
 
-      writeStream.on("finish", () => {
-        files.push({ filepath, filename, mimeType });
-      });
+        writeStream.on("finish", () => {
+          files.push({ filepath, filename, mimeType });
+        });
 
-      writeStream.on("error", (err) => reject(err));
+        writeStream.on("error", (err) => reject(err));
+      }
+    );
+
+    busboy.on("error", (err: Error) => reject(err));
+
+    busboy.on("finish", () => {
+      resolve({ fields, files });
     });
 
-    busboy.on("error", (err) => reject(err));
-
-    busboy.on("finish", () => resolve({ fields, files }));
-
-    if (!req.body) return reject(new Error("Request body is empty"));
+    if (!req.body) {
+      return reject(new Error("Request body is empty or not readable"));
+    }
 
     const reader = req.body.getReader();
 
+    if (!reader) {
+      return reject(new Error("Request body reader is not available"));
+    }
+
     function read() {
-      reader.read().then(({ done, value }) => {
-        if (done) {
-          busboy.end();
-          return;
-        }
-        if (value) busboy.write(Buffer.from(value));
-        read();
-      }).catch(reject);
+      reader
+        .read()
+        .then(({ done, value }) => {
+          if (done) {
+            busboy.end();
+            return;
+          }
+          if (value) {
+            busboy.write(Buffer.from(value));
+          }
+          read();
+        })
+        .catch(reject);
     }
 
     read();
   });
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
 
@@ -94,54 +116,98 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const { fields, files } = await parseFormData(req);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
-    const subject = Array.isArray(fields.subject) ? fields.subject[0] : fields.subject || "";
-    const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
-    let tags = fields.tags || [];
-    if (typeof tags === "string") tags = [tags];
+    const content = Array.isArray(fields.content)
+      ? fields.content[0]
+      : fields.content;
+    const subject = Array.isArray(fields.subject)
+      ? fields.subject[0]
+      : fields.subject || "";
 
-    if (!title || !content) {
-      return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
+    // Normalize tags to string[]
+    type TagLike = string | { value?: string };
+
+    const tagsField = fields.tags || [];
+    let tags: string[] = [];
+
+    if (typeof tagsField === "string") {
+      try {
+        const parsed = JSON.parse(tagsField);
+        if (Array.isArray(parsed)) {
+          tags = parsed
+            .map((t) => {
+              if (typeof t === "string") return t;
+              if (
+                t &&
+                typeof t === "object" &&
+                "value" in t &&
+                typeof t.value === "string"
+              )
+                return t.value;
+              return "";
+            })
+            .filter(Boolean);
+        } else if (typeof parsed === "string") {
+          tags = [parsed];
+        } else {
+          tags = [];
+        }
+      } catch {
+        tags = [tagsField];
+      }
+    } else if (Array.isArray(tagsField)) {
+      tags = tagsField
+        .map((t: TagLike) => {
+          if (typeof t === "string") return t;
+          if (
+            t &&
+            typeof t === "object" &&
+            "value" in t &&
+            typeof t.value === "string"
+          )
+            return t.value;
+          return "";
+        })
+        .filter(Boolean);
+    } else {
+      tags = [];
     }
 
-    const generateSlug = (str: string) =>
-      str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    const slug = generateSlug(title);
-
-    const existing = await Article.findOne({ slug, _id: { $ne: params.id } });
-    if (existing) {
-      return NextResponse.json({ error: "Slug already exists" }, { status: 400 });
-    }
-
-    const article = await Article.findById(params.id);
-    if (!article) {
-      return NextResponse.json({ error: "Article not found" }, { status: 404 });
-    }
-
-    const newAttachments = files.map((file) => ({
+    const attachments = files.map((file) => ({
       type: file.mimeType || "unknown",
       url: `/uploads/${path.basename(file.filepath)}`,
       name: file.filename,
     }));
 
+    // Find article by ID
+    const article = await Article.findById(params.id);
+    if (!article) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
+
+    // Update fields
     article.title = title;
-    article.slug = slug;
-    article.subject = subject;
     article.content = content;
+    article.subject = subject;
     article.tags = tags;
-    article.attachments = [...(article.attachments || []), ...newAttachments];
+    article.attachments = [...(article.attachments || []), ...attachments];
     article.updatedAt = new Date();
 
     await article.save();
-    console.log("Saved article content:", article.content);
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error updating article:", error);
-    return NextResponse.json({ error: "Failed to update article" }, { status: 500 });
+    return NextResponse.json(article, { status: 200 });
+  } catch (err) {
+    console.error("Update error:", err);
+    return NextResponse.json(
+      { error: "Failed to update article" },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
 
@@ -157,7 +223,9 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting article:", error);
-    return NextResponse.json({ error: "Failed to delete article" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete article" },
+      { status: 500 }
+    );
   }
 }
-
