@@ -57,6 +57,7 @@ const ArticleSchema = new Schema<IArticle>(
     attachments: [AttachmentSchema],
     upvotes: [String],
     downvotes: [String],
+    tags: [{ type: String }],
   },
   { timestamps: true }
 );

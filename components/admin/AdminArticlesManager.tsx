@@ -69,60 +69,55 @@ export default function AdminArticlesManager() {
   }, []);
 
   const handleSave = useCallback(
-    async (data: {
-      title: string;
-      subject: string;
-      content: string;
-      tags: string[];
-      attachments: File[];
-    }) => {
-      if (saving) return;
-      setSaving(true);
-      const isEdit = !!editingArticle;
-      const url = isEdit
-        ? `/api/admin/articles/${editingArticle!._id}`
-        : "/api/admin/articles";
-      const method = isEdit ? "PUT" : "POST";
+  async (data) => {
+    if (saving) return;
+    setSaving(true);
 
-      // Use FormData for file uploads
-      const formData = new FormData();
-      formData.append("title", data.title);
-      formData.append("subject", data.subject);
-      formData.append("content", data.content);
-      data.tags.forEach((tag) => formData.append("tags[]", tag));
-      data.attachments.forEach((file) => formData.append("attachments", file));
+    const isEdit = !!editingArticle;
+    const url = isEdit
+      ? `/api/admin/articles/${editingArticle!._id}`
+      : "/api/admin/articles";
+    const method = isEdit ? "PUT" : "POST";
 
-      try {
-        const res = await fetch(url, {
-          method,
-          body: formData,
-        });
+    // Create FormData
+    const formData = new FormData();
+    formData.append("title", data.title);
+    formData.append("subject", data.subject);
+    formData.append("content", data.content);
+    data.tags.forEach((tag) => formData.append("tags", tag));
 
-        if (!res.ok) {
-          let errorMsg = "Failed to save";
-          try {
-            const errorData = await res.json();
-            errorMsg = errorData.error || errorMsg;
-          } catch {}
-          throw new Error(errorMsg);
-        }
+    data.attachments.forEach((file) => formData.append("attachments", file));
 
-        setModalOpen(false);
-        setEditingArticle(null);
-        await fetchArticles();
-        toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
-      } catch (err: unknown) {
-        if (err instanceof Error) {
-          toast.error(`Error saving article: ${err.message}`);
-        } else {
-          toast.error("Unknown error saving article");
-        }
-      } finally {
-        setSaving(false);
+    console.log("[handleSave] Sending data:", data);
+    console.log(`[handleSave] Sending ${method} request to ${url}`);
+
+    try {
+      const res = await fetch(url, {
+        method,
+        body: formData,
+      });
+
+      console.log(`[handleSave] Response status:`, res.status);
+      const json = await res.json();
+      console.log(`[handleSave] Response JSON:`, json);
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to save");
       }
-    },
-    [saving, editingArticle, fetchArticles]
-  );
+
+      setModalOpen(false);
+      setEditingArticle(null);
+      await fetchArticles();
+      toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
+    } catch (err) {
+      console.error("[handleSave] Error saving article:", err);
+      toast.error(`Error saving article: ${err.message || err}`);
+    } finally {
+      setSaving(false);
+    }
+  },
+  [saving, editingArticle, fetchArticles]
+);
 
   const handleDelete = useCallback(
     async (id: string) => {

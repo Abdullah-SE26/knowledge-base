@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -12,11 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Info } from "lucide-react";
-
 import Tags from "@yaireo/tagify/dist/react.tagify";
 import "@yaireo/tagify/dist/tagify.css";
-
-import CustomEditor from "@/components/CustomEditor";
+import CustomEditor from "./CustomEditor";
 
 interface Tag {
   value: string;
@@ -77,12 +75,6 @@ export default function ArticleModal({
     "design",
   ]);
 
-  // Debug initialData.content to confirm it's loaded properly
-  useEffect(() => {
-    console.log("[ArticleModal] initialData.content:", initialData?.content);
-  }, [initialData]);
-
-  // Reset form whenever initialData changes (including content)
   useEffect(() => {
     reset({
       title: initialData?.title || "",
@@ -93,6 +85,7 @@ export default function ArticleModal({
   }, [initialData, reset]);
 
   const onFormSubmit = (data: FormValues) => {
+    console.log("tags:", data.tags)
     onSubmit({
       title: data.title,
       subject: data.subject,
@@ -104,7 +97,10 @@ export default function ArticleModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+      <DialogContent
+        aria-describedby="article-dialog-desc"
+        className="max-w-3xl max-h-[90vh] overflow-auto"
+      >
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Edit Article" : "Create New Article"}
@@ -144,7 +140,7 @@ export default function ArticleModal({
                     whitelist: tagSuggestions,
                     dropdown: { enabled: 0 },
                   }}
-                  defaultValue={JSON.stringify(value)}
+                  value={value} // Pass the array directly, not JSON string
                   onChange={(e) => {
                     try {
                       const tags = JSON.parse(e.detail.value);
@@ -166,9 +162,9 @@ export default function ArticleModal({
               rules={{ required: "Content is required" }}
               render={({ field }) => (
                 <CustomEditor
-                  key={initialData?.content || 'new'} // force remount if content changes
                   value={field.value}
                   onChange={field.onChange}
+                  onSave={() => handleSubmit(onFormSubmit)()} // ✅ Manual Save
                 />
               )}
             />

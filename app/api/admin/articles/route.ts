@@ -12,13 +12,6 @@ export const config = {
   },
 };
 
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
 interface ParsedFile {
   filepath: string;
   filename: string;
@@ -30,13 +23,11 @@ async function parseFormData(req: Request): Promise<{
   files: ParsedFile[];
 }> {
   return new Promise((resolve, reject) => {
-    // Convert headers to plain object
     const headers = Object.fromEntries(req.headers.entries()) as Record<
       string,
       string
     >;
 
-    // Create Busboy instance
     const busboy = Busboy({ headers });
 
     const fields: Record<string, string | string[]> = {};
@@ -86,10 +77,15 @@ async function parseFormData(req: Request): Promise<{
       resolve({ fields, files });
     });
 
-    // Read and feed request body chunks to busboy
-    if (!req.body) return reject(new Error("Request body is empty"));
+    if (!req.body) {
+      return reject(new Error("Request body is empty or not readable"));
+    }
 
     const reader = req.body.getReader();
+
+    if (!reader) {
+      return reject(new Error("Request body reader is not available"));
+    }
 
     function read() {
       reader
@@ -111,7 +107,10 @@ async function parseFormData(req: Request): Promise<{
   });
 }
 
-export async function POST(req: Request) {
+export async function PUT(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
 
@@ -127,48 +126,85 @@ export async function POST(req: Request) {
     const subject = Array.isArray(fields.subject)
       ? fields.subject[0]
       : fields.subject || "";
-    let tags = fields.tags || [];
-    if (typeof tags === "string") tags = [tags];
 
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: "Title and content are required" },
-        { status: 400 }
-      );
-    }
+    // Normalize tags to string[]
+    type TagLike = string | { value?: string };
 
-    let slug = generateSlug(title);
-    let exists = await Article.findOne({ slug });
-    let count = 1;
-    while (exists) {
-      slug = `${generateSlug(title)}-${count++}`;
-      exists = await Article.findOne({ slug });
+    const tagsField = fields.tags || [];
+    let tags: string[] = [];
+
+    if (typeof tagsField === "string") {
+      // Sometimes it's a JSON stringified array or just a string
+      try {
+        const parsed = JSON.parse(tagsField);
+        if (Array.isArray(parsed)) {
+          tags = parsed
+            .map((t) => {
+              if (typeof t === "string") return t;
+              if (
+                t &&
+                typeof t === "object" &&
+                "value" in t &&
+                typeof t.value === "string"
+              )
+                return t.value;
+              return "";
+            })
+            .filter(Boolean);
+        } else if (typeof parsed === "string") {
+          tags = [parsed];
+        } else {
+          tags = [];
+        }
+      } catch {
+        tags = [tagsField];
+      }
+    } else if (Array.isArray(tagsField)) {
+      tags = tagsField
+        .map((t: TagLike) => {
+          if (typeof t === "string") return t;
+          if (
+            t &&
+            typeof t === "object" &&
+            "value" in t &&
+            typeof t.value === "string"
+          )
+            return t.value;
+          return "";
+        })
+        .filter(Boolean);
+    } else {
+      tags = [];
     }
 
     const attachments = files.map((file) => ({
-      type: "pdf", // adjust or detect based on mimeType if needed
+      type: "pdf", // adjust mimeType detection here if needed
       url: `/uploads/${path.basename(file.filepath)}`,
       name: file.filename,
     }));
 
-    const newArticle = new Article({
-      title,
-      slug,
-      subject,
-      content,
-      tags,
-      attachments,
-      upvotes: [],
-      downvotes: [],
-    });
+    // Update with tags and push attachments
+    const updatedArticle = await Article.findByIdAndUpdate(
+      params.id,
+      {
+        title,
+        content,
+        subject,
+        tags,
+        $push: { attachments: { $each: attachments } },
+      },
+      { new: true }
+    );
 
-    await newArticle.save();
+    if (!updatedArticle) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
 
-    return NextResponse.json(newArticle, { status: 201 });
-  } catch (error) {
-    console.error("Failed to create article:", error);
+    return NextResponse.json(updatedArticle, { status: 200 });
+  } catch (err) {
+    console.error("Update error:", err);
     return NextResponse.json(
-      { error: "Failed to create article" },
+      { error: "Failed to update article" },
       { status: 500 }
     );
   }

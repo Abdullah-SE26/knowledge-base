@@ -35,6 +35,7 @@ async function parseFormData(req: Request): Promise<{
     }
 
     busboy.on("field", (fieldname, val) => {
+        console.log(`[busboy] field: ${fieldname} =`, val);
       if (fields[fieldname]) {
         if (Array.isArray(fields[fieldname])) {
           (fields[fieldname] as string[]).push(val);
@@ -102,45 +103,61 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
     }
 
-    // Generate slug from title
     const generateSlug = (str: string) =>
       str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     const slug = generateSlug(title);
 
-    // Check for slug uniqueness (exclude current article)
     const existing = await Article.findOne({ slug, _id: { $ne: params.id } });
     if (existing) {
       return NextResponse.json({ error: "Slug already exists" }, { status: 400 });
     }
 
-    // Find article by ID
     const article = await Article.findById(params.id);
     if (!article) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
 
-    // Process uploaded files into attachments array
     const newAttachments = files.map((file) => ({
-      type: file.mimeType, // or "pdf" etc.
+      type: file.mimeType || "unknown",
       url: `/uploads/${path.basename(file.filepath)}`,
       name: file.filename,
     }));
 
-    // Update article fields
     article.title = title;
     article.slug = slug;
     article.subject = subject;
     article.content = content;
     article.tags = tags;
-    // Append new attachments to existing ones, or replace if you want:
     article.attachments = [...(article.attachments || []), ...newAttachments];
     article.updatedAt = new Date();
 
     await article.save();
+    console.log("Saved article content:", article.content);
 
-    return NextResponse.json(article);
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating article:", error);
     return NextResponse.json({ error: "Failed to update article" }, { status: 500 });
   }
 }
+
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+  const authCheck = await requireAdmin(req);
+  if (authCheck instanceof NextResponse) return authCheck;
+
+  await connectMongoDB();
+
+  try {
+    const deleted = await Article.findByIdAndDelete(params.id);
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting article:", error);
+    return NextResponse.json({ error: "Failed to delete article" }, { status: 500 });
+  }
+}
+

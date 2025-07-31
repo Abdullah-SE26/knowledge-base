@@ -5,9 +5,13 @@ import { notFound } from "next/navigation";
 import ArticleActionsClient from "@/components/ArticleActionsClient";
 import { format } from "date-fns";
 import BackButton from "@/components/BackButton";
-import { FileText, Image as ImageIcon, Link as LinkIcon, FileSignature } from "lucide-react";
+import {
+  FileText,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  FileSignature,
+} from "lucide-react";
 import { Types } from "mongoose";
-
 
 interface ArticlePageProps {
   params: {
@@ -19,11 +23,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   await connectMongoDB();
 
   const article = (await Article.findOne({ slug: params.slug }).lean()) as
-  | (IArticle & { _id: Types.ObjectId })
-  | null;
-
-
-
+    | (IArticle & { _id: Types.ObjectId })
+    | null;
 
   if (!article) {
     notFound();
@@ -35,7 +36,9 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
   const safeArticle = {
     ...article,
     _id: article._id.toString(),
-    createdAtFormatted: createdAt ? format(createdAt, "MMMM d, yyyy h:mm a") : "",
+    createdAtFormatted: createdAt
+      ? format(createdAt, "MMMM d, yyyy h:mm a")
+      : "",
     updatedAtFormatted:
       updatedAt && updatedAt.getTime() !== createdAt?.getTime()
         ? format(updatedAt, "MMMM d, yyyy h:mm a")
@@ -46,14 +49,22 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
   return (
     <main className="max-w-3xl mx-auto py-12 px-4">
-      <div className='w-full flex justify-start fixed top-40 left-83 z-50'>
+      <div className="w-full flex justify-start fixed top-40 left-83 z-50">
         <BackButton />
       </div>
-      
-      <h1 className="text-4xl font-bold mb-15 mt-[-25] text-center">{safeArticle.title}</h1>
-      <h2 className="text-lg text-gray-600 mb-4 dark:text-white">Subject: {safeArticle.subject}</h2>
 
-      <article className="prose prose-lg mt-6">{safeArticle.content}</article>
+      <h1 className="text-4xl font-bold mb-15 mt-[-25] text-center">
+        {safeArticle.title}
+      </h1>
+      <h2 className="text-lg text-gray-600 mb-4 dark:text-white">
+        Subject: {safeArticle.subject}
+      </h2>
+
+      {/* 🛠️ CONTENT RENDERED AS HTML */}
+      <article
+        className="prose prose-lg mt-6 dark:prose-invert"
+        dangerouslySetInnerHTML={{ __html: safeArticle.content }}
+      />
 
       <div className="mt-8 text-sm text-gray-500">
         <p>Created: {safeArticle.createdAtFormatted}</p>
@@ -61,6 +72,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
           <p>Last updated: {safeArticle.updatedAtFormatted}</p>
         )}
       </div>
+
+          {/* <div>
+         {article.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-4">
+                {safeArticle.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1"
+                  >
+                    {tag}
+                  </span>
+                  </div>
+                ))}
+              </div> */}
+            
 
       <div className="mt-8">
         <ArticleActionsClient
@@ -73,8 +99,8 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
 
       {/* Attachments Section */}
       <div className="mt-8">
-      <h3 className="text-xl font-semibold mb-4">Attachments</h3>
-      {Array.isArray(article.attachments) && article.attachments.length > 0  ? (
+        <h3 className="text-xl font-semibold mb-4">Attachments</h3>
+        {Array.isArray(article.attachments) && article.attachments.length > 0 ? (
           <ul className="space-y-4">
             {article.attachments.map((attachment, index) => (
               <li key={index} className="flex items-center gap-2">
@@ -130,9 +156,10 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
               </li>
             ))}
           </ul>
-      ) : ( <p className='text-gray-500 italic'> No attachments for this article</p>
-      )}
-       </div>
+        ) : (
+          <p className="text-gray-500 italic">No attachments for this article</p>
+        )}
+      </div>
     </main>
   );
 }
