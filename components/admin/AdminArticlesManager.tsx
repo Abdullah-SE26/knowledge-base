@@ -3,13 +3,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ArticleModal from "./ArticleModal";
 import ConfirmationModal from "@/components/admin/ConfirmationModal";
-import {
-  Edit2,
-  Trash2,
-  PlusCircle,
-  ThumbsUp,
-  ThumbsDown,
-} from "lucide-react";
+import { Edit2, Trash2, PlusCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 
@@ -69,70 +63,92 @@ export default function AdminArticlesManager() {
   }, []);
 
   const handleSave = useCallback(
-  async (data) => {
-    if (saving) return;
-    setSaving(true);
+    async (data: FormData) => {
+      if (saving) return;
+      setSaving(true);
 
-    const isEdit = !!editingArticle;
-    const url = isEdit
-      ? `/api/admin/articles/${editingArticle!._id}`
-      : "/api/admin/articles";
-    const method = isEdit ? "PUT" : "POST";
+      const isEdit = !!editingArticle;
+      const url = isEdit
+        ? `/api/admin/articles/${editingArticle!._id}`
+        : "/api/admin/articles";
+      const method = isEdit ? "PUT" : "POST";
 
-    // Create FormData
-    const formData = new FormData();
-    formData.append("title", data.title);
-    formData.append("subject", data.subject || "");
-    formData.append("content", data.content);
-    data.tags.forEach((tag) => formData.append("tags", tag.value || tag));
-    if (data.attachments && data.attachments.length > 0) {
-      data.attachments.forEach((file) => formData.append("attachments", file));
-    }
+      try {
+        // Extract fields from FormData properly:
+        const title = data.get("title") as string | null;
+        const subject = (data.get("subject") as string | null) || "";
+        const content = data.get("content") as string | null;
 
-    console.log("[handleSave] Sending data:", data);
-    console.log(`[handleSave] Sending ${method} request to ${url}`);
-
-    try {
-      const res = await fetch(url, {
-        method,
-        body: formData,
-      });
-
-      console.log(`[handleSave] Response status:`, res.status);
-
-      // Only try to parse JSON if response has content-type json
-      const contentType = res.headers.get("content-type");
-      let json = null;
-      if (contentType && contentType.includes("application/json")) {
-        try {
-          json = await res.json();
-          console.log(`[handleSave] Response JSON:`, json);
-        } catch (parseErr) {
-          console.error("[handleSave] JSON parse error:", parseErr);
-          throw new Error("Invalid JSON response from server");
+        // Tags is a JSON string, parse it safely
+        const tagsJson = data.get("tags") as string | null;
+        let tags: string[] = [];
+        if (tagsJson) {
+          try {
+            tags = JSON.parse(tagsJson);
+          } catch {
+            console.warn("Failed to parse tags JSON");
+          }
         }
-      } else {
-        console.warn("[handleSave] Response is not JSON, skipping JSON parse");
-      }
 
-      if (!res.ok) {
-        const errMsg = json?.error || res.statusText || "Failed to save";
-        throw new Error(errMsg);
-      }
+        // Files from input (may be empty array)
+        const files = data.getAll("attachment") as File[]; // notice key "attachment"
 
-      setModalOpen(false);
-      setEditingArticle(null);
-      await fetchArticles();
-      toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
-    } catch (err) {
-      console.error("[handleSave] Error saving article:", err);
-      toast.error(`Error saving article: ${err.message || err}`);
-    } finally {
-      setSaving(false);
-    }
-  },
-  [saving, editingArticle, fetchArticles]
-);
+        // Link/form attachments are under "attachments" key (JSON string)
+        const attachmentsJson = data.get("attachments") as string | null;
+        let attachments: { type: string; url: string; name?: string }[] = [];
+        if (attachmentsJson) {
+          try {
+            attachments = JSON.parse(attachmentsJson);
+          } catch {
+            console.warn("Failed to parse attachments JSON");
+          }
+        }
+
+        // Rebuild FormData to send to backend API with correct keys:
+        const sendData = new FormData();
+        if (title) sendData.append("title", title);
+        sendData.append("subject", subject);
+        if (content) sendData.append("content", content);
+        sendData.append("tags", JSON.stringify(tags));
+        files.forEach((file) => sendData.append("attachment", file));
+        if (attachments.length > 0) {
+          sendData.append("attachments", JSON.stringify(attachments));
+        }
+
+        console.log("[handleSave] Sending data to backend:", {
+          title,
+          subject,
+          content,
+          tags,
+          files,
+          attachments,
+        });
+
+        const res = await fetch(url, {
+          method,
+          body: sendData,
+        });
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          throw new Error(json?.error || res.statusText || "Failed to save");
+        }
+
+        setModalOpen(false);
+        setEditingArticle(null);
+        await fetchArticles();
+        toast.success(
+          `Article ${isEdit ? "updated" : "created"} successfully!`
+        );
+      } catch (err: any) {
+        console.error("[handleSave] Error saving article:", err);
+        toast.error(`Error saving article: ${err.message || err}`);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [saving, editingArticle, fetchArticles]
+  );
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -232,9 +248,6 @@ export default function AdminArticlesManager() {
         </div>
       )}
 
-      
-
-
       <ArticleModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -248,6 +261,11 @@ export default function AdminArticlesManager() {
                 tags: editingArticle.tags
                   ? editingArticle.tags.map((tag) => ({ value: tag }))
                   : [],
+                attachments: (editingArticle.attachments || []).map((att) => ({
+                  type: "link", // or "form" if you can detect or store it in your backend
+                  url: att.url,
+                  name: att.name,
+                })),
               }
             : undefined
         }

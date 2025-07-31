@@ -18,6 +18,57 @@ interface ParsedFile {
   mimeType: string;
 }
 
+// Helper to determine attachment type from mimeType
+function getAttachmentType(mimeType: string): "pdf" | "image" | "link" | "form" {
+  if (!mimeType) return "pdf";
+  if (mimeType.includes("pdf")) return "pdf";
+  if (mimeType.startsWith("image/")) return "image";
+  return "pdf"; // fallback
+}
+
+// Parses attachments field from form data (for links/forms) + files
+async function parseAttachments(
+  fields: Record<string, any>,
+  files: ParsedFile[]
+) {
+  let extraAttachments: { type: "link" | "form"; url: string; name?: string }[] = [];
+
+  if (fields.attachments) {
+    try {
+      const parsed =
+        typeof fields.attachments === "string"
+          ? JSON.parse(fields.attachments)
+          : fields.attachments;
+
+      if (Array.isArray(parsed)) {
+        extraAttachments = parsed
+          .filter(
+            (att) =>
+              att.url &&
+              (att.type === "link" || att.type === "form") &&
+              typeof att.url === "string"
+          )
+          .map((att) => ({
+            type: att.type,
+            url: att.url,
+            name: att.name || undefined,
+          }));
+      }
+    } catch (e) {
+      console.warn("Could not parse attachments field as JSON:", e);
+    }
+  }
+
+  const fileAttachments = files.map((file) => ({
+    type: getAttachmentType(file.mimeType),
+    url: `/uploads/${path.basename(file.filepath)}`,
+    name: file.filename,
+  }));
+
+  return [...extraAttachments, ...fileAttachments];
+}
+
+// Fixed parseFormData that waits for all files to finish writing
 async function parseFormData(req: Request): Promise<{
   fields: Record<string, string | string[]>;
   files: ParsedFile[];
@@ -33,6 +84,8 @@ async function parseFormData(req: Request): Promise<{
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
+
+    const fileWritePromises: Promise<void>[] = [];
 
     busboy.on("field", (fieldname: string, val: string) => {
       if (fields[fieldname]) {
@@ -59,18 +112,25 @@ async function parseFormData(req: Request): Promise<{
         const writeStream = fs.createWriteStream(filepath);
         file.pipe(writeStream);
 
-        writeStream.on("finish", () => {
-          files.push({ filepath, filename, mimeType });
+        const promise = new Promise<void>((res, rej) => {
+          writeStream.on("finish", () => {
+            files.push({ filepath, filename, mimeType });
+            res();
+          });
+          writeStream.on("error", (err) => rej(err));
         });
 
-        writeStream.on("error", (err) => reject(err));
+        fileWritePromises.push(promise);
       }
     );
 
     busboy.on("error", (err: Error) => reject(err));
 
     busboy.on("finish", () => {
-      resolve({ fields, files });
+      // Wait for all file writes to complete before resolving
+      Promise.all(fileWritePromises)
+        .then(() => resolve({ fields, files }))
+        .catch(reject);
     });
 
     if (!req.body) {
@@ -170,11 +230,7 @@ export async function POST(req: Request) {
       tags = [];
     }
 
-    const attachments = files.map((file) => ({
-      type: file.mimeType || "unknown",
-      url: `/uploads/${path.basename(file.filepath)}`,
-      name: file.filename,
-    }));
+    const attachments = await parseAttachments(fields, files);
 
     // Generate slug from title
     const generateSlug = (str: string) =>
@@ -220,7 +276,7 @@ export async function GET(req: Request) {
 
   try {
     const articles = await Article.find({})
-      .select("title slug subject createdAt upvotes downvotes tags content")
+      .select("title slug subject createdAt upvotes downvotes tags content attachments")
       .sort({ createdAt: -1 })
       .lean();
 

@@ -95,9 +95,7 @@ Summary: Server-side detail page showing one article in full.
 
 
 TODO
-articles dont get updated even tho i get the article updated sucesessfully message.
-attchments cannot be updated it gives error
-attchments types not defined
-editor isnt great its putting <li>content<li> insted of actually aplying the style. use Atto html editor.
-the modal styling isnt great
-tags i button dont work
+attchments working but multipe attchments links and stuff (check atlas att test 8)
+need to remove form from attachments in modal
+need to be able to add multiple images.
+editor still not fully functional

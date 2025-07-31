@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   Dialog,
@@ -11,30 +11,43 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Info } from "lucide-react";
+import { Info, Plus, Link as LinkIcon, X } from "lucide-react";
 import Tags from "@yaireo/tagify/dist/react.tagify";
 import "@yaireo/tagify/dist/tagify.css";
 import CustomEditor from "./CustomEditor";
+
+// For tooltip (simple implementation)
+function Tooltip({ children, tip }: { children: React.ReactNode; tip: string }) {
+  return (
+    <span className="relative group inline-flex items-center cursor-help">
+      {children}
+      <span className="absolute bottom-full mb-1 w-max max-w-xs rounded bg-gray-700 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 z-50">
+        {tip}
+      </span>
+    </span>
+  );
+}
 
 interface Tag {
   value: string;
 }
 
+interface LinkOrFormAttachment {
+  type: "link" | "form";
+  url: string;
+  name?: string;
+}
+
 interface ArticleModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: {
-    title: string;
-    subject: string;
-    content: string;
-    tags: string[];
-    attachments: File[];
-  }) => Promise<void> | void;
+  onSubmit: (data: FormData) => Promise<void> | void;
   initialData?: {
     title?: string;
     subject?: string;
     content?: string;
     tags?: Tag[];
+    attachments?: LinkOrFormAttachment[];
   };
 }
 
@@ -67,6 +80,18 @@ export default function ArticleModal({
     },
   });
 
+  // State for link/form attachments user can add manually
+  const [linkAttachments, setLinkAttachments] = useState<LinkOrFormAttachment[]>(
+    []
+  );
+
+  // Inputs for new link/form attachment
+  const [newAttachmentType, setNewAttachmentType] = useState<"link" | "form">(
+    "link"
+  );
+  const [newAttachmentURL, setNewAttachmentURL] = useState("");
+  const [newAttachmentName, setNewAttachmentName] = useState("");
+
   const [tagSuggestions] = useState<string[]>([
     "news",
     "tech",
@@ -82,17 +107,50 @@ export default function ArticleModal({
       tags: initialData?.tags || [],
       content: initialData?.content || "",
     });
+
+    setLinkAttachments(initialData?.attachments || []);
   }, [initialData, reset]);
 
+  function addLinkAttachment() {
+    if (!newAttachmentURL.trim()) return;
+    setLinkAttachments((prev) => [
+      ...prev,
+      {
+        type: newAttachmentType,
+        url: newAttachmentURL.trim(),
+        name: newAttachmentName.trim() || undefined,
+      },
+    ]);
+    setNewAttachmentURL("");
+    setNewAttachmentName("");
+  }
+
+  function removeLinkAttachment(index: number) {
+    setLinkAttachments((prev) => prev.filter((_, i) => i !== index));
+  }
+
   const onFormSubmit = (data: FormValues) => {
-    console.log("tags:", data.tags)
-    onSubmit({
-      title: data.title,
-      subject: data.subject,
-      content: data.content,
-      tags: data.tags.map((tag) => tag.value),
-      attachments: data.attachment ? Array.from(data.attachment) : [],
+    const formData = new FormData();
+
+    formData.append("title", data.title);
+    formData.append("subject", data.subject);
+    formData.append("content", data.content);
+
+    // Tags as JSON string
+    formData.append("tags", JSON.stringify(data.tags.map((tag) => tag.value)));
+
+    // Append files from file input
+    const files = data.attachment ? Array.from(data.attachment) : [];
+    files.forEach((file) => {
+      formData.append("attachment", file);
     });
+
+    // Append link/form attachments as JSON string under "attachments"
+    if (linkAttachments.length > 0) {
+      formData.append("attachments", JSON.stringify(linkAttachments));
+    }
+
+    onSubmit(formData);
   };
 
   return (
@@ -106,30 +164,36 @@ export default function ArticleModal({
             {initialData ? "Edit Article" : "Create New Article"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
           <div>
-            <Label>Title *</Label>
-            <Input {...register("title", { required: "Title is required" })} />
+            <Label htmlFor="title">Title *</Label>
+            <Input
+              id="title"
+              {...register("title", { required: "Title is required" })}
+              autoFocus
+            />
             {errors.title && (
-              <p className="text-sm text-red-600">{errors.title.message}</p>
+              <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>
             )}
           </div>
 
           <div>
-            <Label>Subject *</Label>
+            <Label htmlFor="subject">Subject *</Label>
             <Input
+              id="subject"
               {...register("subject", { required: "Subject is required" })}
             />
             {errors.subject && (
-              <p className="text-sm text-red-600">{errors.subject.message}</p>
+              <p className="text-sm text-red-600 mt-1">{errors.subject.message}</p>
             )}
           </div>
 
           <div>
-            <Label className="flex items-center gap-1">
-              <span title="Press Enter to create a tag">
-                Tags <Info size={14} />
-              </span>
+            <Label className="flex items-center gap-2" htmlFor="tags">
+              <span>Tags</span>
+              <Tooltip tip="Press Enter to create a tag">
+                <Info size={16} className="text-gray-500 hover:text-gray-700" />
+              </Tooltip>
             </Label>
             <Controller
               name="tags"
@@ -139,8 +203,10 @@ export default function ArticleModal({
                   settings={{
                     whitelist: tagSuggestions,
                     dropdown: { enabled: 0 },
+                    // Keep tags visually distinct (optional)
+                    // editTags: false,
                   }}
-                  value={value} // Pass the array directly, not JSON string
+                  value={value}
                   onChange={(e) => {
                     try {
                       const tags = JSON.parse(e.detail.value);
@@ -155,7 +221,7 @@ export default function ArticleModal({
           </div>
 
           <div>
-            <Label>Content *</Label>
+            <Label htmlFor="content">Content *</Label>
             <Controller
               name="content"
               control={control}
@@ -164,22 +230,94 @@ export default function ArticleModal({
                 <CustomEditor
                   value={field.value}
                   onChange={field.onChange}
-                  onSave={() => handleSubmit(onFormSubmit)()} // ✅ Manual Save
+                  onSave={() => handleSubmit(onFormSubmit)()} // Manual Save
                 />
               )}
             />
-
             {errors.content && (
-              <p className="text-sm text-red-600">{errors.content.message}</p>
+              <p className="text-sm text-red-600 mt-1">{errors.content.message}</p>
             )}
           </div>
 
+          {/* File Attachments */}
           <div>
-            <Label>Attachments</Label>
-            <Input type="file" multiple {...register("attachment")} />
+            <Label htmlFor="attachment">Attachments (Upload files)</Label>
+            <Input id="attachment" type="file" multiple {...register("attachment")} />
           </div>
 
-          <div className="flex justify-end space-x-2">
+          {/* Link/Form Attachments */}
+          <div>
+            <Label>Attachments (Add links or forms)</Label>
+            <div className="flex gap-2 items-center mb-2">
+              <select
+                className="border rounded p-1"
+                value={newAttachmentType}
+                onChange={(e) =>
+                  setNewAttachmentType(e.target.value as "link" | "form")
+                }
+              >
+                <option value="link">Link</option>
+                <option value="form">Form</option>
+              </select>
+              <Input
+                placeholder="URL"
+                className="flex-grow"
+                value={newAttachmentURL}
+                onChange={(e) => setNewAttachmentURL(e.target.value)}
+              />
+              <Input
+                placeholder="Optional name"
+                className="flex-grow"
+                value={newAttachmentName}
+                onChange={(e) => setNewAttachmentName(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addLinkAttachment}
+                disabled={!newAttachmentURL.trim()}
+                title="Add attachment"
+              >
+                <Plus size={16} />
+              </Button>
+            </div>
+
+            {/* Show existing link/form attachments */}
+            {linkAttachments.length > 0 && (
+              <ul className="list-disc ml-5 space-y-1 max-h-32 overflow-auto">
+                {linkAttachments.map((att, idx) => (
+                  <li
+                    key={idx}
+                    className="flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-2">
+                      <LinkIcon size={16} />
+                      <a
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline text-blue-600"
+                      >
+                        {att.name || att.url}
+                      </a>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeLinkAttachment(idx)}
+                      title="Remove attachment"
+                    >
+                      <X size={16} />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex justify-end space-x-3 mt-6">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
