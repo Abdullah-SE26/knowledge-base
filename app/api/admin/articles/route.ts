@@ -3,8 +3,8 @@ import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
 import Busboy from "busboy";
-import path from "path";
-import fs from "fs";
+import { v2 as cloudinary } from "cloudinary";
+import streamifier from "streamifier";
 
 export const config = {
   api: {
@@ -12,11 +12,12 @@ export const config = {
   },
 };
 
-interface ParsedFile {
-  filepath: string;
-  filename: string;
-  mimeType: string;
-}
+// Configure Cloudinary with env vars
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!,
+});
 
 // Helper to determine attachment type from mimeType
 function getAttachmentType(mimeType: string): "pdf" | "image" | "link" | "form" {
@@ -26,68 +27,37 @@ function getAttachmentType(mimeType: string): "pdf" | "image" | "link" | "form" 
   return "pdf"; // fallback
 }
 
-// Parses attachments field from form data (for links/forms) + files
-async function parseAttachments(
-  fields: Record<string, any>,
-  files: ParsedFile[]
-) {
-  let extraAttachments: { type: "link" | "form"; url: string; name?: string }[] = [];
-
-  if (fields.attachments) {
-    try {
-      const parsed =
-        typeof fields.attachments === "string"
-          ? JSON.parse(fields.attachments)
-          : fields.attachments;
-
-      if (Array.isArray(parsed)) {
-        extraAttachments = parsed
-          .filter(
-            (att) =>
-              att.url &&
-              (att.type === "link" || att.type === "form") &&
-              typeof att.url === "string"
-          )
-          .map((att) => ({
-            type: att.type,
-            url: att.url,
-            name: att.name || undefined,
-          }));
+// Upload a buffer to Cloudinary, return secure URL
+function uploadToCloudinary(buffer: Buffer, filename: string, folder: string) {
+  return new Promise<{ url: string }>((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        public_id: filename.replace(/\.[^/.]+$/, ""), // filename without extension
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        if (!result?.secure_url) return reject(new Error("Cloudinary upload failed"));
+        resolve({ url: result.secure_url });
       }
-    } catch (e) {
-      console.warn("Could not parse attachments field as JSON:", e);
-    }
-  }
-
-  const fileAttachments = files.map((file) => ({
-    type: getAttachmentType(file.mimeType),
-    url: `/uploads/${path.basename(file.filepath)}`,
-    name: file.filename,
-  }));
-
-  return [...extraAttachments, ...fileAttachments];
+    );
+    streamifier.createReadStream(buffer).pipe(uploadStream);
+  });
 }
 
-// Fixed parseFormData that waits for all files to finish writing
+// Parse multipart form data with Busboy and collect buffers (no local saving)
 async function parseFormData(req: Request): Promise<{
   fields: Record<string, string | string[]>;
-  files: ParsedFile[];
+  files: { buffer: Buffer; filename: string; mimeType: string }[];
 }> {
   return new Promise((resolve, reject) => {
     const headers = Object.fromEntries(req.headers.entries()) as Record<string, string>;
     const busboy = Busboy({ headers });
 
     const fields: Record<string, string | string[]> = {};
-    const files: ParsedFile[] = [];
+    const files: { buffer: Buffer; filename: string; mimeType: string }[] = [];
 
-    const uploadDir = path.join(process.cwd(), "/public/uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const fileWritePromises: Promise<void>[] = [];
-
-    busboy.on("field", (fieldname: string, val: string) => {
+    busboy.on("field", (fieldname, val) => {
       if (fields[fieldname]) {
         if (Array.isArray(fields[fieldname])) {
           (fields[fieldname] as string[]).push(val);
@@ -99,38 +69,23 @@ async function parseFormData(req: Request): Promise<{
       }
     });
 
-    busboy.on(
-      "file",
-      (
-        fieldname: string,
-        file: NodeJS.ReadableStream,
-        info: { filename: string; mimeType: string }
-      ) => {
-        const { filename, mimeType } = info;
-        const filepath = path.join(uploadDir, `${Date.now()}-${filename}`);
+    busboy.on("file", (fieldname, file, info) => {
+      const { filename, mimeType } = info;
+      const chunks: Uint8Array[] = [];
 
-        const writeStream = fs.createWriteStream(filepath);
-        file.pipe(writeStream);
+      file.on("data", (data) => chunks.push(data));
+      file.on("end", () => {
+        const buffer = Buffer.concat(chunks);
+        files.push({ buffer, filename, mimeType });
+      });
 
-        const promise = new Promise<void>((res, rej) => {
-          writeStream.on("finish", () => {
-            files.push({ filepath, filename, mimeType });
-            res();
-          });
-          writeStream.on("error", (err) => rej(err));
-        });
+      file.on("error", (err) => reject(err));
+    });
 
-        fileWritePromises.push(promise);
-      }
-    );
-
-    busboy.on("error", (err: Error) => reject(err));
+    busboy.on("error", (err) => reject(err));
 
     busboy.on("finish", () => {
-      // Wait for all file writes to complete before resolving
-      Promise.all(fileWritePromises)
-        .then(() => resolve({ fields, files }))
-        .catch(reject);
+      resolve({ fields, files });
     });
 
     if (!req.body) {
@@ -138,10 +93,6 @@ async function parseFormData(req: Request): Promise<{
     }
 
     const reader = req.body.getReader();
-
-    if (!reader) {
-      return reject(new Error("Request body reader is not available"));
-    }
 
     function read() {
       reader
@@ -151,9 +102,7 @@ async function parseFormData(req: Request): Promise<{
             busboy.end();
             return;
           }
-          if (value) {
-            busboy.write(Buffer.from(value));
-          }
+          if (value) busboy.write(Buffer.from(value));
           read();
         })
         .catch(reject);
@@ -161,6 +110,64 @@ async function parseFormData(req: Request): Promise<{
 
     read();
   });
+}
+
+// Parse attachments from fields (support all types) and merge with uploaded files
+async function parseAttachments(
+  fields: Record<string, any>,
+  files: { buffer: Buffer; filename: string; mimeType: string; url?: string }[]
+) {
+  const seen = new Set<string>();
+
+  const extraAttachments: { type: string; url: string; name?: string }[] = [];
+
+  const attachmentsField = Array.isArray(fields.attachments)
+    ? fields.attachments[0]
+    : fields.attachments;
+
+  if (attachmentsField) {
+    try {
+      const parsed = JSON.parse(attachmentsField);
+
+      if (Array.isArray(parsed)) {
+        for (const att of parsed) {
+          if (
+            att &&
+            typeof att.url === "string" &&
+            ["link", "form", "image", "pdf"].includes(att.type) &&
+            !seen.has(att.url)
+          ) {
+            seen.add(att.url);
+            extraAttachments.push({
+              type: att.type,
+              url: att.url,
+              name: att.name || undefined,
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Could not parse attachments JSON:", e);
+    }
+  }
+
+  const fileAttachments = [];
+
+  for (const file of files) {
+    if (!file.url) {
+      const uploadResult = await uploadToCloudinary(file.buffer, file.filename, "articles");
+      file.url = uploadResult.url;
+    }
+    if (seen.has(file.url)) continue;
+    seen.add(file.url);
+    fileAttachments.push({
+      type: getAttachmentType(file.mimeType),
+      url: file.url,
+      name: file.filename,
+    });
+  }
+
+  return [...extraAttachments, ...fileAttachments];
 }
 
 // POST: Create new article
@@ -260,10 +267,7 @@ export async function POST(req: Request) {
     return NextResponse.json(newArticle, { status: 201 });
   } catch (err) {
     console.error("Create article error:", err);
-    return NextResponse.json(
-      { error: "Failed to create article" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to create article" }, { status: 500 });
   }
 }
 
@@ -283,9 +287,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ articles });
   } catch (error) {
     console.error("Failed to fetch articles:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch articles" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch articles" }, { status: 500 });
   }
 }

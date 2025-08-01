@@ -7,6 +7,12 @@ import { Edit2, Trash2, PlusCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 
+interface Attachment {
+  type: "pdf" | "image" | "link" | "form" | "docx";
+  url: string;
+  name?: string;
+}
+
 interface Article {
   _id: string;
   title: string;
@@ -17,7 +23,7 @@ interface Article {
   upvotes: string[];
   downvotes: string[];
   tags?: string[];
-  attachments?: { name: string; url: string }[];
+  attachments?: Attachment[];
 }
 
 export default function AdminArticlesManager() {
@@ -46,21 +52,18 @@ export default function AdminArticlesManager() {
     fetchArticles();
   }, [fetchArticles]);
 
-  const handleEdit = useCallback(
-    (id: string) => {
-      const article = articles.find((a) => a._id === id);
-      if (article) {
-        setEditingArticle(article);
-        setModalOpen(true);
-      }
-    },
-    [articles]
-  );
+  const handleEdit = (id: string) => {
+    const article = articles.find((a) => a._id === id);
+    if (article) {
+      setEditingArticle(article);
+      setModalOpen(true);
+    }
+  };
 
-  const handleCreate = useCallback(() => {
+  const handleCreate = () => {
     setEditingArticle(null);
     setModalOpen(true);
-  }, []);
+  };
 
   const handleSave = useCallback(
     async (data: FormData) => {
@@ -74,12 +77,10 @@ export default function AdminArticlesManager() {
       const method = isEdit ? "PUT" : "POST";
 
       try {
-        // Extract fields from FormData properly:
         const title = data.get("title") as string | null;
         const subject = (data.get("subject") as string | null) || "";
         const content = data.get("content") as string | null;
 
-        // Tags is a JSON string, parse it safely
         const tagsJson = data.get("tags") as string | null;
         let tags: string[] = [];
         if (tagsJson) {
@@ -90,10 +91,7 @@ export default function AdminArticlesManager() {
           }
         }
 
-        // Files from input (may be empty array)
-        const files = data.getAll("attachment") as File[]; // notice key "attachment"
-
-        // Link/form attachments are under "attachments" key (JSON string)
+        const files = data.getAll("attachment") as File[];
         const attachmentsJson = data.get("attachments") as string | null;
         let attachments: { type: string; url: string; name?: string }[] = [];
         if (attachmentsJson) {
@@ -104,7 +102,6 @@ export default function AdminArticlesManager() {
           }
         }
 
-        // Rebuild FormData to send to backend API with correct keys:
         const sendData = new FormData();
         if (title) sendData.append("title", title);
         sendData.append("subject", subject);
@@ -115,15 +112,6 @@ export default function AdminArticlesManager() {
           sendData.append("attachments", JSON.stringify(attachments));
         }
 
-        console.log("[handleSave] Sending data to backend:", {
-          title,
-          subject,
-          content,
-          tags,
-          files,
-          attachments,
-        });
-
         const res = await fetch(url, {
           method,
           body: sendData,
@@ -131,17 +119,15 @@ export default function AdminArticlesManager() {
 
         if (!res.ok) {
           const json = await res.json().catch(() => null);
-          throw new Error(json?.error || res.statusText || "Failed to save");
+          throw new Error(json?.error || res.statusText);
         }
 
         setModalOpen(false);
         setEditingArticle(null);
         await fetchArticles();
-        toast.success(
-          `Article ${isEdit ? "updated" : "created"} successfully!`
-        );
+        toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
       } catch (err: any) {
-        console.error("[handleSave] Error saving article:", err);
+        console.error("Save failed:", err);
         toast.error(`Error saving article: ${err.message || err}`);
       } finally {
         setSaving(false);
@@ -157,8 +143,7 @@ export default function AdminArticlesManager() {
         const res = await fetch(`/api/admin/articles/${id}`, {
           method: "DELETE",
         });
-        if (!res.ok) throw new Error("Failed to delete");
-        await res.json();
+        if (!res.ok) throw new Error("Failed to delete article");
         await fetchArticles();
         toast.success("Article deleted.");
       } catch {
@@ -171,7 +156,6 @@ export default function AdminArticlesManager() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <Toaster />
-
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Admin Articles</h1>
         <button
@@ -186,23 +170,20 @@ export default function AdminArticlesManager() {
       {loading ? (
         <p className="text-center">Loading...</p>
       ) : (
-        <div className="overflow-auto shadow border rounded-lg">
-          <table className="min-w-full table-auto">
-            <thead className="bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-sm">
+        <div className="overflow-x-auto shadow border rounded-lg">
+          <table className="min-w-full text-sm table-auto">
+            <thead className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200">
               <tr>
                 <th className="px-4 py-2 text-left">Title</th>
                 <th className="px-4 py-2 text-left">Subject</th>
-                <th className="px-4 py-2">Votes</th>
+                <th className="px-4 py-2 text-center">Votes</th>
                 <th className="px-4 py-2 text-left">Created</th>
                 <th className="px-4 py-2 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="text-sm divide-y dark:divide-gray-700">
+            <tbody className="divide-y dark:divide-gray-700">
               {articles.map((a) => (
-                <tr
-                  key={a._id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
+                <tr key={a._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-2 max-w-xs break-words">
                     <Link
                       href={`/articles/${a.slug}`}
@@ -212,34 +193,38 @@ export default function AdminArticlesManager() {
                     </Link>
                   </td>
                   <td className="px-4 py-2">{a.subject || "-"}</td>
-                  <td className="px-4 py-2 text-center flex justify-center gap-3">
-                    <span className="flex items-center gap-1 text-green-600">
-                      <ThumbsUp size={16} />
-                      {a.upvotes.length}
-                    </span>
-                    <span className="flex items-center gap-1 text-red-500">
-                      <ThumbsDown size={16} />
-                      {a.downvotes.length}
-                    </span>
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex justify-center gap-3">
+                      <span className="flex items-center gap-1 text-green-600">
+                        <ThumbsUp size={16} />
+                        {a.upvotes.length}
+                      </span>
+                      <span className="flex items-center gap-1 text-red-500">
+                        <ThumbsDown size={16} />
+                        {a.downvotes.length}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-xs text-gray-500">
                     {new Date(a.createdAt).toLocaleString()}
                   </td>
-                  <td className="px-4 py-2 text-center space-x-2">
-                    <button
-                      onClick={() => handleEdit(a._id)}
-                      className="text-blue-600 hover:text-blue-800"
-                      title="Edit"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(a._id)}
-                      className="text-red-600 hover:text-red-800"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
+                  <td className="px-4 py-2 text-center">
+                    <div className="flex justify-center gap-2">
+                      <button
+                        onClick={() => handleEdit(a._id)}
+                        className="text-blue-600 hover:text-blue-800"
+                        title="Edit"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(a._id)}
+                        className="text-red-600 hover:text-red-800"
+                        title="Delete"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -258,14 +243,14 @@ export default function AdminArticlesManager() {
                 title: editingArticle.title,
                 subject: editingArticle.subject,
                 content: editingArticle.content,
-                tags: editingArticle.tags
-                  ? editingArticle.tags.map((tag) => ({ value: tag }))
-                  : [],
-                attachments: (editingArticle.attachments || []).map((att) => ({
-                  type: "link", // or "form" if you can detect or store it in your backend
-                  url: att.url,
-                  name: att.name,
-                })),
+                tags:
+                  editingArticle.tags?.map((tag) => ({ value: tag })) || [],
+                attachments:
+                  editingArticle.attachments?.map((att) => ({
+                    type: att.type || "link",
+                    url: att.url,
+                    name: att.name,
+                  })) || [],
               }
             : undefined
         }
