@@ -207,6 +207,13 @@ export default function ArticleModal({
             (rem.name || "") === (att.name || "")
         )
     );
+    
+    console.log("=== DEBUG: ARTICLE MODAL SUBMIT ===");
+    console.log("All attachments:", attachments);
+    console.log("Removed attachments:", removedAttachments);
+    console.log("Current attachments (after filtering):", currentAttachments);
+    console.log("Files being uploaded:", files.length);
+    console.log("=== END MODAL DEBUG ===");
 
     formData.append("attachments", JSON.stringify(currentAttachments));
 

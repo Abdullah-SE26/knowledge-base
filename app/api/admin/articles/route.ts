@@ -179,6 +179,11 @@ export async function POST(req: Request) {
 
   try {
     const { fields, files } = await parseFormData(req);
+    
+    console.log("=== DEBUG: CREATE ARTICLE ===");
+    console.log("Received fields:", Object.keys(fields));
+    console.log("Received files:", files.length);
+    console.log("Raw attachments field:", fields.attachments);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
     const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
@@ -238,6 +243,8 @@ export async function POST(req: Request) {
     }
 
     const attachments = await parseAttachments(fields, files);
+    
+    console.log("Parsed attachments:", attachments);
 
     // Generate slug from title
     const generateSlug = (str: string) =>
@@ -263,6 +270,9 @@ export async function POST(req: Request) {
     });
 
     await newArticle.save();
+    
+    console.log("Article created successfully. Attachments in DB:", newArticle.attachments);
+    console.log("=== END DEBUG ===");
 
     return NextResponse.json(newArticle, { status: 201 });
   } catch (err) {

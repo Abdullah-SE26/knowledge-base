@@ -113,6 +113,14 @@ export default function AdminArticlesManager() {
             console.warn("Failed to parse attachments JSON");
           }
         }
+        
+        console.log("=== DEBUG: FRONTEND SENDING ===");
+        console.log("Method:", method);
+        console.log("URL:", url);
+        console.log("Title:", title);
+        console.log("Files:", files.length);
+        console.log("Attachments JSON:", attachmentsJson);
+        console.log("Parsed attachments:", attachments);
 
         const sendData = new FormData();
         if (title) sendData.append("title", title);
@@ -120,9 +128,17 @@ export default function AdminArticlesManager() {
         if (content) sendData.append("content", content);
         sendData.append("tags", JSON.stringify(tags));
         files.forEach((file) => sendData.append("attachment", file));
-        if (attachments.length > 0) {
-          sendData.append("attachments", JSON.stringify(attachments));
+        sendData.append("attachments", JSON.stringify(attachments));
+        
+        console.log("FormData contents:");
+        for (const [key, value] of sendData.entries()) {
+          if (value instanceof File) {
+            console.log(`${key}:`, `File(${value.name})`);
+          } else {
+            console.log(`${key}:`, value);
+          }
         }
+        console.log("=== END FRONTEND DEBUG ===");
 
         const res = await fetch(url, {
           method,

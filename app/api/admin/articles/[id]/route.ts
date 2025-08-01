@@ -285,6 +285,12 @@ export async function PUT(
 
   try {
     const { fields, files } = await parseFormData(req);
+    
+    console.log("=== DEBUG: UPDATE ARTICLE ===");
+    console.log("Article ID:", params.id);
+    console.log("Received fields:", Object.keys(fields));
+    console.log("Received files:", files.length);
+    console.log("Raw attachments field:", fields.attachments);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
     const content = Array.isArray(fields.content)
@@ -332,6 +338,8 @@ export async function PUT(
       seen.add(key);
       return true;
     });
+    
+    console.log("Final attachments to save:", attachments);
 
     const article = await Article.findById(params.id);
     if (!article)
@@ -345,6 +353,9 @@ export async function PUT(
     article.updatedAt = new Date();
 
     await article.save();
+    
+    console.log("Article saved successfully. Attachments in DB:", article.attachments);
+    console.log("=== END DEBUG ===");
 
     return NextResponse.json(article, { status: 200 });
   } catch (err) {
