@@ -23,16 +23,27 @@ import {
 import Tags from "@yaireo/tagify/dist/react.tagify";
 import "@yaireo/tagify/dist/tagify.css";
 import CustomEditor from "./CustomEditor";
+import { v4 as uuidv4 } from "uuid";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
-// Tooltip component (unchanged)
 function Tooltip({ children, tip }: { children: React.ReactNode; tip: string }) {
   return (
-    <span className="relative group inline-flex items-center cursor-help">
-      {children}
-      <span className="absolute bottom-full mb-1 w-max max-w-xs rounded bg-gray-700 px-2 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 z-50">
-        {tip}
-      </span>
-    </span>
+    <TooltipPrimitive.Provider>
+      <TooltipPrimitive.Root>
+        <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
+        <TooltipPrimitive.Portal>
+          <TooltipPrimitive.Content
+            side="top"
+            align="center"
+            sideOffset={5}
+            className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
+          >
+            {tip}
+            <TooltipPrimitive.Arrow className="fill-gray-800" />
+          </TooltipPrimitive.Content>
+        </TooltipPrimitive.Portal>
+      </TooltipPrimitive.Root>
+    </TooltipPrimitive.Provider>
   );
 }
 
@@ -41,13 +52,14 @@ interface Tag {
 }
 
 interface Attachment {
+  customId?: string;
   type: "pdf" | "image" | "link" | "form" | "docx";
   url: string;
   name?: string;
 }
 
 interface ArticleModalProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: FormData) => Promise<void> | void;
   initialData?: {
@@ -72,11 +84,11 @@ const attachmentTypes = [
   { value: "pdf", label: "PDF", icon: <FileText size={16} /> },
   { value: "image", label: "Image", icon: <Image size={16} /> },
   { value: "form", label: "Form", icon: <FilePlus size={16} /> },
-  { value: "docx", label: "DOCX", icon: <FileText size={16} /> },
+  { value: "docx", label: "Word Document", icon: <FileText size={16} /> },
 ];
 
 export default function ArticleModal({
-  open,
+  isOpen,
   onClose,
   onSubmit,
   initialData,
@@ -96,18 +108,13 @@ export default function ArticleModal({
     },
   });
 
-  // State for attachments (rich type)
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-
-  // Track attachments removed by user (only existing ones)
   const [removedAttachments, setRemovedAttachments] = useState<Attachment[]>([]);
 
-  // Inputs for new attachment
   const [newAttachmentURL, setNewAttachmentURL] = useState("");
   const [newAttachmentName, setNewAttachmentName] = useState("");
-  const [newAttachmentType, setNewAttachmentType] = useState<Attachment["type"]>(
-    "link"
-  );
+  const [newAttachmentType, setNewAttachmentType] =
+    useState<Attachment["type"]>("link");
 
   const [tagSuggestions] = useState<string[]>([
     "news",
@@ -124,7 +131,6 @@ export default function ArticleModal({
       tags: initialData?.tags || [],
       content: initialData?.content || "",
     });
-
     setAttachments(initialData?.attachments || []);
     setRemovedAttachments([]);
     setNewAttachmentURL("");
@@ -133,15 +139,30 @@ export default function ArticleModal({
   }, [initialData, reset]);
 
   function addAttachment() {
-    if (!newAttachmentURL.trim()) return;
+    const trimmedUrl = newAttachmentURL.trim();
+    const trimmedName = newAttachmentName.trim();
+
+    if (!trimmedUrl) return;
+
+    const exists = attachments.some(
+      (att) =>
+        att.type === newAttachmentType &&
+        att.url === trimmedUrl &&
+        (att.name || "") === (trimmedName || "")
+    );
+
+    if (exists) return;
+
     setAttachments((prev) => [
       ...prev,
       {
+        customId: uuidv4(),
         type: newAttachmentType,
-        url: newAttachmentURL.trim(),
-        name: newAttachmentName.trim() || undefined,
+        url: trimmedUrl,
+        name: trimmedName || undefined,
       },
     ]);
+
     setNewAttachmentURL("");
     setNewAttachmentName("");
   }
@@ -167,16 +188,16 @@ export default function ArticleModal({
     formData.append("title", data.title);
     formData.append("subject", data.subject);
     formData.append("content", data.content);
+    formData.append(
+      "tags",
+      JSON.stringify(data.tags.map((tag) => tag.value))
+    );
 
-    formData.append("tags", JSON.stringify(data.tags.map((tag) => tag.value)));
-
-    // Append files from file input
     const files = data.attachment ? Array.from(data.attachment) : [];
     files.forEach((file) => {
       formData.append("attachment", file);
     });
 
-    // Append attachments excluding removed ones
     const currentAttachments = attachments.filter(
       (att) =>
         !removedAttachments.some(
@@ -187,17 +208,13 @@ export default function ArticleModal({
         )
     );
 
-    if (currentAttachments.length > 0) {
-      formData.append("attachments", JSON.stringify(currentAttachments));
-    } else {
-      formData.append("attachments", JSON.stringify([]));
-    }
+    formData.append("attachments", JSON.stringify(currentAttachments));
 
     onSubmit(formData);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         aria-describedby="article-dialog-desc"
         className="max-w-3xl max-h-[90vh] overflow-auto"
@@ -208,6 +225,7 @@ export default function ArticleModal({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+          {/* Title */}
           <div>
             <Label htmlFor="title">Title *</Label>
             <Input
@@ -220,6 +238,7 @@ export default function ArticleModal({
             )}
           </div>
 
+          {/* Subject */}
           <div>
             <Label htmlFor="subject">Subject *</Label>
             <Input
@@ -231,11 +250,15 @@ export default function ArticleModal({
             )}
           </div>
 
+          {/* Tags */}
           <div>
             <Label className="flex items-center gap-2" htmlFor="tags">
               <span>Tags</span>
               <Tooltip tip="Press Enter to create a tag">
-                <Info size={16} className="text-gray-500 hover:text-gray-700" />
+                <Info
+                  size={16}
+                  className="text-gray-500 hover:text-gray-700 cursor-help"
+                />
               </Tooltip>
             </Label>
             <Controller
@@ -261,6 +284,7 @@ export default function ArticleModal({
             />
           </div>
 
+          {/* Content */}
           <div>
             <Label htmlFor="content">Content *</Label>
             <Controller
@@ -271,7 +295,7 @@ export default function ArticleModal({
                 <CustomEditor
                   value={field.value}
                   onChange={field.onChange}
-                  onSave={() => handleSubmit(onFormSubmit)()} // Manual Save
+                  onSave={() => handleSubmit(onFormSubmit)()}
                 />
               )}
             />
@@ -280,18 +304,13 @@ export default function ArticleModal({
             )}
           </div>
 
-          {/* File Attachments */}
+          {/* File Upload */}
           <div>
             <Label htmlFor="attachment">Attachments (Upload files)</Label>
-            <Input
-              id="attachment"
-              type="file"
-              multiple
-              {...register("attachment")}
-            />
+            <Input id="attachment" type="file" multiple {...register("attachment")} />
           </div>
 
-          {/* Rich Attachments UI */}
+          {/* Attachment UI */}
           <div>
             <Label>Attachments (Add links or files)</Label>
             <div className="flex gap-2 items-center mb-3">
@@ -309,7 +328,6 @@ export default function ArticleModal({
                   </option>
                 ))}
               </select>
-
               <Input
                 placeholder="URL or file path"
                 className="flex-grow"
@@ -337,12 +355,10 @@ export default function ArticleModal({
             {attachments.length > 0 && (
               <ul className="max-h-40 overflow-auto divide-y rounded border border-gray-200 dark:border-gray-700">
                 {attachments.map((att, idx) => {
-                  const typeInfo = attachmentTypes.find(
-                    (t) => t.value === att.type
-                  );
+                  const typeInfo = attachmentTypes.find((t) => t.value === att.type);
                   return (
                     <li
-                      key={idx}
+                      key={att.customId || idx}
                       className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
                     >
                       <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">

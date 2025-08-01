@@ -303,3 +303,36 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json({ error: "Failed to update article" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  // Check if admin
+  const authCheck = await requireAdmin(req);
+  if (authCheck instanceof NextResponse) return authCheck;
+
+  await connectMongoDB();
+
+  const { id } = params;
+
+  if (!id) {
+    return NextResponse.json({ error: "Article ID is required" }, { status: 400 });
+  }
+
+  try {
+    const deleted = await Article.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: "Article deleted successfully" }, { status: 200 });
+  } catch (error) {
+    console.error("Failed to delete article:", error);
+    return NextResponse.json(
+      { error: "Failed to delete article" },
+      { status: 500 }
+    );
+  }
+}

@@ -3,9 +3,21 @@
 import React, { useEffect, useState, useCallback } from "react";
 import ArticleModal from "./ArticleModal";
 import ConfirmationModal from "@/components/admin/ConfirmationModal";
-import { Edit2, Trash2, PlusCircle, ThumbsUp, ThumbsDown } from "lucide-react";
+import {
+  Edit2,
+  Trash2,
+  PlusCircle,
+  ThumbsUp,
+  ThumbsDown,
+  FileText,
+  Image,
+  Link as LinkIcon,
+  FilePlus,
+} from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
+
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
 interface Attachment {
   type: "pdf" | "image" | "link" | "form" | "docx";
@@ -125,7 +137,9 @@ export default function AdminArticlesManager() {
         setModalOpen(false);
         setEditingArticle(null);
         await fetchArticles();
-        toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
+        toast.success(
+          `Article ${isEdit ? "updated" : "created"} successfully!`
+        );
       } catch (err: any) {
         console.error("Save failed:", err);
         toast.error(`Error saving article: ${err.message || err}`);
@@ -153,6 +167,15 @@ export default function AdminArticlesManager() {
     [fetchArticles]
   );
 
+  // Icon map for attachments
+  const attachmentIconMap = {
+    pdf: <FileText size={16} />,
+    image: <Image size={16} />,
+    link: <LinkIcon size={16} />,
+    form: <FilePlus size={16} />,
+    docx: <FileText size={16} />,
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <Toaster />
@@ -177,17 +200,23 @@ export default function AdminArticlesManager() {
                 <th className="px-4 py-2 text-left">Title</th>
                 <th className="px-4 py-2 text-left">Subject</th>
                 <th className="px-4 py-2 text-center">Votes</th>
+                <th className="px-4 py-2 text-left">Attachments</th>
                 <th className="px-4 py-2 text-left">Created</th>
                 <th className="px-4 py-2 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {articles.map((a) => (
-                <tr key={a._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <tr
+                  key={a._id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
                   <td className="px-4 py-2 max-w-xs break-words">
                     <Link
                       href={`/articles/${a.slug}`}
                       className="text-blue-600 hover:underline font-medium"
+                      target="_blank"
+                      rel="noopener noreferrer"
                     >
                       {a.title}
                     </Link>
@@ -205,6 +234,59 @@ export default function AdminArticlesManager() {
                       </span>
                     </div>
                   </td>
+                  <td className="px-4 py-2">
+                    {a.attachments && a.attachments.length > 0 ? (
+                      <div className="flex flex-wrap gap-3">
+                        {(
+                          [
+                            "image",
+                            "pdf",
+                            "link",
+                            "form",
+                            "docx",
+                          ] as Attachment["type"][]
+                        ).map((type) => {
+                          const count =
+                            a.attachments?.filter((att) => att.type === type)
+                              .length || 0;
+                          if (count === 0) return null;
+                          return (
+                            <TooltipPrimitive.Provider key={type}>
+                              <TooltipPrimitive.Root>
+                                <TooltipPrimitive.Trigger asChild>
+                                  <div
+                                    className="flex items-center gap-1 cursor-default select-none rounded bg-gray-100 px-2 py-1 text-sm text-gray-700 hover:bg-gray-200"
+                                    aria-label={`${count} ${type}${
+                                      count > 1 ? "s" : ""
+                                    }`}
+                                  >
+                                    {attachmentIconMap[type] || (
+                                      <LinkIcon size={16} />
+                                    )}
+                                    <span>{count}</span>
+                                  </div>
+                                </TooltipPrimitive.Trigger>
+                                <TooltipPrimitive.Portal>
+                                  <TooltipPrimitive.Content
+                                    side="top"
+                                    align="center"
+                                    sideOffset={5}
+                                    className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
+                                  >
+                                    {`${count} ${type}${count > 1 ? "s" : ""}`}
+                                    <TooltipPrimitive.Arrow className="fill-gray-800" />
+                                  </TooltipPrimitive.Content>
+                                </TooltipPrimitive.Portal>
+                              </TooltipPrimitive.Root>
+                            </TooltipPrimitive.Provider>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">None</span>
+                    )}
+                  </td>
+
                   <td className="px-4 py-2 text-xs text-gray-500">
                     {new Date(a.createdAt).toLocaleString()}
                   </td>
@@ -234,7 +316,7 @@ export default function AdminArticlesManager() {
       )}
 
       <ArticleModal
-        open={modalOpen}
+        isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSave}
         initialData={
@@ -243,8 +325,7 @@ export default function AdminArticlesManager() {
                 title: editingArticle.title,
                 subject: editingArticle.subject,
                 content: editingArticle.content,
-                tags:
-                  editingArticle.tags?.map((tag) => ({ value: tag })) || [],
+                tags: editingArticle.tags?.map((tag) => ({ value: tag })) || [],
                 attachments:
                   editingArticle.attachments?.map((att) => ({
                     type: att.type || "link",
