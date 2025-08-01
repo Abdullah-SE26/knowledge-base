@@ -18,18 +18,31 @@ cloudinary.config({
   secure: true,
 });
 
-type AttachmentType = "pdf" | "image" | "link";
+type AttachmentType = "pdf" | "image" | "link" | "form" | "docx";
+
+const allowedAttachmentTypes: AttachmentType[] = [
+  "link",
+  "image",
+  "pdf",
+  "form",
+  "docx",
+];
 
 // Get attachment type by mime
 function getAttachmentType(mimeType: string): AttachmentType {
   if (!mimeType) return "pdf";
   if (mimeType.includes("pdf")) return "pdf";
   if (mimeType.startsWith("image/")) return "image";
+  // Could extend logic here for forms/docs if needed
   return "pdf";
 }
 
 // Upload Buffer to Cloudinary and return secure URL
-function uploadToCloudinary(buffer: Buffer, filename: string, folder: string): Promise<string> {
+function uploadToCloudinary(
+  buffer: Buffer,
+  filename: string,
+  folder: string
+): Promise<string> {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -39,7 +52,8 @@ function uploadToCloudinary(buffer: Buffer, filename: string, folder: string): P
       },
       (error, result) => {
         if (error) return reject(error);
-        if (!result?.secure_url) return reject(new Error("Cloudinary upload failed"));
+        if (!result?.secure_url)
+          return reject(new Error("Cloudinary upload failed"));
         resolve(result.secure_url);
       }
     );
@@ -47,13 +61,16 @@ function uploadToCloudinary(buffer: Buffer, filename: string, folder: string): P
   });
 }
 
-// Parse multipart form data with Busboy and stream request body properly
+// Parse multipart form data with Busboy
 async function parseFormData(req: Request): Promise<{
   fields: Record<string, string | string[]>;
   files: { buffer: Buffer; filename: string; mimeType: string }[];
 }> {
   return new Promise((resolve, reject) => {
-    const headers = Object.fromEntries(req.headers.entries()) as Record<string, string>;
+    const headers = Object.fromEntries(req.headers.entries()) as Record<
+      string,
+      string
+    >;
     const busboy = Busboy({ headers });
 
     const fields: Record<string, string | string[]> = {};
@@ -94,16 +111,17 @@ async function parseFormData(req: Request): Promise<{
       return;
     }
 
-    if (!reader) return reject(new Error("Stream reader unavailable"));
-
     const pump = () => {
-      reader.read().then(({ done, value }) => {
-        if (done) return busboy.end();
-        if (value) busboy.write(Buffer.from(value));
-        pump();
-      }).catch(reject);
+      reader
+        .read()
+        .then(({ done, value }) => {
+          if (done) return busboy.end();
+          if (value) busboy.write(Buffer.from(value));
+          pump();
+        })
+        .catch(reject);
     };
-        pump();
+    pump();
   });
 }
 
@@ -133,7 +151,7 @@ async function parseAttachments(
           if (
             att &&
             typeof att.url === "string" &&
-            ["link", "image", "pdf"].includes(att.type) &&
+            allowedAttachmentTypes.includes(att.type) &&
             !seen.has(att.url)
           ) {
             seen.add(att.url);
@@ -173,7 +191,9 @@ function normalizeTags(tagsField: unknown): string[] {
       const parsed = JSON.parse(tagsField);
       if (Array.isArray(parsed)) {
         tags = parsed
-          .map((t) => (typeof t === "string" ? t : typeof t?.value === "string" ? t.value : ""))
+          .map((t) =>
+            typeof t === "string" ? t : typeof t?.value === "string" ? t.value : ""
+          )
           .filter(Boolean);
       } else if (typeof parsed === "string") {
         tags = [parsed];
@@ -183,7 +203,9 @@ function normalizeTags(tagsField: unknown): string[] {
     }
   } else if (Array.isArray(tagsField)) {
     tags = tagsField
-      .map((t) => (typeof t === "string" ? t : typeof t?.value === "string" ? t.value : ""))
+      .map((t) =>
+        typeof t === "string" ? t : typeof t?.value === "string" ? t.value : ""
+      )
       .filter(Boolean);
   }
   return tags;
@@ -199,11 +221,18 @@ export async function POST(req: Request) {
     const { fields, files } = await parseFormData(req);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
-    const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
-    const subject = Array.isArray(fields.subject) ? fields.subject[0] : fields.subject || "";
+    const content = Array.isArray(fields.content)
+      ? fields.content[0]
+      : fields.content;
+    const subject = Array.isArray(fields.subject)
+      ? fields.subject[0]
+      : fields.subject || "";
 
     if (!title || !content) {
-      return NextResponse.json({ error: "Title and content are required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Title and content are required" },
+        { status: 400 }
+      );
     }
 
     const tags = normalizeTags(fields.tags);
@@ -216,7 +245,10 @@ export async function POST(req: Request) {
 
     const existing = await Article.findOne({ slug });
     if (existing) {
-      return NextResponse.json({ error: "Slug already exists" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Slug already exists" },
+        { status: 400 }
+      );
     }
 
     const newArticle = new Article({
@@ -235,12 +267,18 @@ export async function POST(req: Request) {
     return NextResponse.json(newArticle, { status: 201 });
   } catch (err) {
     console.error("Create article error:", err);
-    return NextResponse.json({ error: "Failed to create article" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create article" },
+      { status: 500 }
+    );
   }
 }
 
 // PUT - Update Article
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
   await connectMongoDB();
@@ -249,15 +287,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     const { fields, files } = await parseFormData(req);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
-    const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
-    const subject = Array.isArray(fields.subject) ? fields.subject[0] : fields.subject || "";
+    const content = Array.isArray(fields.content)
+      ? fields.content[0]
+      : fields.content;
+    const subject = Array.isArray(fields.subject)
+      ? fields.subject[0]
+      : fields.subject || "";
 
     const tags = normalizeTags(fields.tags);
     const newUploads = await parseAttachments(fields, files);
 
     // Parse existing attachments from fields.attachments JSON string
     let existingAttachments: typeof newUploads = [];
-    const existingField = Array.isArray(fields.attachments) ? fields.attachments[0] : fields.attachments;
+    const existingField = Array.isArray(fields.attachments)
+      ? fields.attachments[0]
+      : fields.attachments;
 
     if (existingField && typeof existingField === "string") {
       try {
@@ -267,13 +311,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
             (att) =>
               att &&
               typeof att.url === "string" &&
-              ["link", "image", "pdf"].includes(att.type)
+              allowedAttachmentTypes.includes(att.type)
           );
         }
       } catch (e) {
         console.warn("Could not parse existing attachments:", e);
       }
     }
+
+    // Debug logs for troubleshooting
+    console.log("Parsed existing attachments:", existingAttachments);
+    console.log("New uploads:", newUploads);
 
     // Combine existing + new uploads, deduplicate by type+url+name
     const allAttachments = [...existingAttachments, ...newUploads];
@@ -286,7 +334,8 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     });
 
     const article = await Article.findById(params.id);
-    if (!article) return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    if (!article)
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
 
     article.title = title;
     article.content = content;
@@ -300,10 +349,14 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     return NextResponse.json(article, { status: 200 });
   } catch (err) {
     console.error("Update error:", err);
-    return NextResponse.json({ error: "Failed to update article" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update article" },
+      { status: 500 }
+    );
   }
 }
 
+// DELETE - Delete Article
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
@@ -317,17 +370,26 @@ export async function DELETE(
   const { id } = params;
 
   if (!id) {
-    return NextResponse.json({ error: "Article ID is required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Article ID is required" },
+      { status: 400 }
+    );
   }
 
   try {
     const deleted = await Article.findByIdAndDelete(id);
 
     if (!deleted) {
-      return NextResponse.json({ error: "Article not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Article not found" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json({ message: "Article deleted successfully" }, { status: 200 });
+    return NextResponse.json(
+      { message: "Article deleted successfully" },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Failed to delete article:", error);
     return NextResponse.json(
