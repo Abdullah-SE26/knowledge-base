@@ -55,7 +55,12 @@ const AttachmentSchema = new Schema<IAttachment & { customId: string }>(
       required: true,
       validate: {
         validator: function (v: string) {
-          return /^(http|https):\/\/[^ "]+$/.test(v);
+          try {
+            new URL(v);
+            return v.startsWith("http://") || v.startsWith("https://");
+          } catch {
+            return false;
+          }
         },
         message: (props: any) => `${props.value} is not a valid URL!`,
       },
