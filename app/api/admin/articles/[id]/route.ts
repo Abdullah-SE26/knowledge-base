@@ -10,7 +10,6 @@ export const config = {
   api: { bodyParser: false },
 };
 
-// Configure Cloudinary (make sure your env vars are set!)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
   api_key: process.env.CLOUDINARY_API_KEY!,
@@ -18,26 +17,29 @@ cloudinary.config({
   secure: true,
 });
 
-type AttachmentType = "pdf" | "image" | "link" | "form" | "docx";
+type AttachmentType = "pdf" | "image" | "form" | "docx";
 
-const allowedAttachmentTypes: AttachmentType[] = [
-  "link",
-  "image",
-  "pdf",
-  "form",
-  "docx",
-];
+interface Attachment {
+  type: AttachmentType;
+  url: string;
+  name?: string;
+}
 
-// Get attachment type by mime
+interface UploadedFile {
+  buffer: Buffer;
+  filename: string;
+  mimeType: string;
+}
+
+const allowedAttachmentTypes: AttachmentType[] = ["image", "pdf", "form", "docx"];
+
 function getAttachmentType(mimeType: string): AttachmentType {
   if (!mimeType) return "pdf";
   if (mimeType.includes("pdf")) return "pdf";
   if (mimeType.startsWith("image/")) return "image";
-  // Could extend logic here for forms/docs if needed
   return "pdf";
 }
 
-// Upload Buffer to Cloudinary and return secure URL
 function uploadToCloudinary(
   buffer: Buffer,
   filename: string,
@@ -47,13 +49,12 @@ function uploadToCloudinary(
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        public_id: filename.replace(/\.[^/.]+$/, ""), // filename without extension
+        public_id: filename.replace(/\.[^/.]+$/, ""),
         resource_type: "auto",
       },
       (error, result) => {
         if (error) return reject(error);
-        if (!result?.secure_url)
-          return reject(new Error("Cloudinary upload failed"));
+        if (!result?.secure_url) return reject(new Error("Cloudinary upload failed"));
         resolve(result.secure_url);
       }
     );
@@ -61,20 +62,16 @@ function uploadToCloudinary(
   });
 }
 
-// Parse multipart form data with Busboy
 async function parseFormData(req: Request): Promise<{
   fields: Record<string, string | string[]>;
-  files: { buffer: Buffer; filename: string; mimeType: string }[];
+  files: UploadedFile[];
 }> {
   return new Promise((resolve, reject) => {
-    const headers = Object.fromEntries(req.headers.entries()) as Record<
-      string,
-      string
-    >;
+    const headers = Object.fromEntries(req.headers.entries()) as Record<string, string>;
     const busboy = Busboy({ headers });
 
     const fields: Record<string, string | string[]> = {};
-    const files: { buffer: Buffer; filename: string; mimeType: string }[] = [];
+    const files: UploadedFile[] = [];
 
     busboy.on("field", (fieldname, val) => {
       if (fields[fieldname]) {
@@ -100,16 +97,10 @@ async function parseFormData(req: Request): Promise<{
     });
 
     busboy.on("error", reject);
-
-    busboy.on("finish", () => {
-      resolve({ fields, files });
-    });
+    busboy.on("finish", () => resolve({ fields, files }));
 
     const reader = req.body?.getReader?.();
-    if (!reader) {
-      reject(new Error("Request body reader is not available"));
-      return;
-    }
+    if (!reader) return reject(new Error("Request body reader is not available"));
 
     const pump = () => {
       reader
@@ -121,30 +112,25 @@ async function parseFormData(req: Request): Promise<{
         })
         .catch(reject);
     };
+
     pump();
   });
 }
 
-// Parse attachments including links + Cloudinary uploaded files
 async function parseAttachments(
   fields: Record<string, any>,
-  files: { buffer: Buffer; filename: string; mimeType: string }[]
-): Promise<
-  {
-    type: AttachmentType;
-    url: string;
-    name?: string;
-  }[]
-> {
-  const result: { type: AttachmentType; url: string; name?: string }[] = [];
+  files: UploadedFile[]
+): Promise<Attachment[]> {
   const seen = new Set<string>();
+  const result: Attachment[] = [];
 
-  try {
-    const attachmentsField = Array.isArray(fields.attachments)
-      ? fields.attachments[0]
-      : fields.attachments;
+  // Parse existing (if any)
+  const attachmentsField = Array.isArray(fields.attachments)
+    ? fields.attachments[0]
+    : fields.attachments;
 
-    if (attachmentsField) {
+  if (attachmentsField) {
+    try {
       const parsed = JSON.parse(attachmentsField);
       if (Array.isArray(parsed)) {
         for (const att of parsed) {
@@ -163,12 +149,12 @@ async function parseAttachments(
           }
         }
       }
+    } catch (e) {
+      console.warn("Could not parse existing attachments:", e);
     }
-  } catch (e) {
-    console.warn("Could not parse existing attachments:", e);
   }
 
-  // Upload all files to Cloudinary and add to result
+  // Upload new files
   for (const file of files) {
     const url = await uploadToCloudinary(file.buffer, file.filename, "articles");
     if (seen.has(url)) continue;
@@ -183,12 +169,11 @@ async function parseAttachments(
   return result;
 }
 
-// Normalize tags from various formats to string[]
-function normalizeTags(tagsField: unknown): string[] {
+function normalizeTags(input: unknown): string[] {
   let tags: string[] = [];
-  if (typeof tagsField === "string") {
+  if (typeof input === "string") {
     try {
-      const parsed = JSON.parse(tagsField);
+      const parsed = JSON.parse(input);
       if (Array.isArray(parsed)) {
         tags = parsed
           .map((t) =>
@@ -199,79 +184,16 @@ function normalizeTags(tagsField: unknown): string[] {
         tags = [parsed];
       }
     } catch {
-      tags = [tagsField];
+      tags = [input];
     }
-  } else if (Array.isArray(tagsField)) {
-    tags = tagsField
+  } else if (Array.isArray(input)) {
+    tags = input
       .map((t) =>
         typeof t === "string" ? t : typeof t?.value === "string" ? t.value : ""
       )
       .filter(Boolean);
   }
   return tags;
-}
-
-// POST - Create Article
-export async function POST(req: Request) {
-  const authCheck = await requireAdmin(req);
-  if (authCheck instanceof NextResponse) return authCheck;
-  await connectMongoDB();
-
-  try {
-    const { fields, files } = await parseFormData(req);
-
-    const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
-    const content = Array.isArray(fields.content)
-      ? fields.content[0]
-      : fields.content;
-    const subject = Array.isArray(fields.subject)
-      ? fields.subject[0]
-      : fields.subject || "";
-
-    if (!title || !content) {
-      return NextResponse.json(
-        { error: "Title and content are required" },
-        { status: 400 }
-      );
-    }
-
-    const tags = normalizeTags(fields.tags);
-    const attachments = await parseAttachments(fields, files);
-
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    const existing = await Article.findOne({ slug });
-    if (existing) {
-      return NextResponse.json(
-        { error: "Slug already exists" },
-        { status: 400 }
-      );
-    }
-
-    const newArticle = new Article({
-      title,
-      slug,
-      subject,
-      content,
-      tags,
-      attachments,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    await newArticle.save();
-
-    return NextResponse.json(newArticle, { status: 201 });
-  } catch (err) {
-    console.error("Create article error:", err);
-    return NextResponse.json(
-      { error: "Failed to create article" },
-      { status: 500 }
-    );
-  }
 }
 
 // PUT - Update Article
@@ -281,61 +203,23 @@ export async function PUT(
 ) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
+
   await connectMongoDB();
 
   try {
     const { fields, files } = await parseFormData(req);
 
     const title = Array.isArray(fields.title) ? fields.title[0] : fields.title;
-    const content = Array.isArray(fields.content)
-      ? fields.content[0]
-      : fields.content;
-    const subject = Array.isArray(fields.subject)
-      ? fields.subject[0]
-      : fields.subject || "";
+    const content = Array.isArray(fields.content) ? fields.content[0] : fields.content;
+    const subject = Array.isArray(fields.subject) ? fields.subject[0] : fields.subject || "";
 
     const tags = normalizeTags(fields.tags);
-    const newUploads = await parseAttachments(fields, files);
-
-    // Parse existing attachments from fields.attachments JSON string
-    let existingAttachments: typeof newUploads = [];
-    const existingField = Array.isArray(fields.attachments)
-      ? fields.attachments[0]
-      : fields.attachments;
-
-    if (existingField && typeof existingField === "string") {
-      try {
-        const parsed = JSON.parse(existingField);
-        if (Array.isArray(parsed)) {
-          existingAttachments = parsed.filter(
-            (att) =>
-              att &&
-              typeof att.url === "string" &&
-              allowedAttachmentTypes.includes(att.type)
-          );
-        }
-      } catch (e) {
-        console.warn("Could not parse existing attachments:", e);
-      }
-    }
-
-    // Debug logs for troubleshooting
-    console.log("Parsed existing attachments:", existingAttachments);
-    console.log("New uploads:", newUploads);
-
-    // Combine existing + new uploads, deduplicate by type+url+name
-    const allAttachments = [...existingAttachments, ...newUploads];
-    const seen = new Set<string>();
-    const attachments = allAttachments.filter((att) => {
-      const key = `${att.type}-${att.url}-${att.name || ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const attachments = await parseAttachments(fields, files);
 
     const article = await Article.findById(params.id);
-    if (!article)
+    if (!article) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
+    }
 
     article.title = title;
     article.content = content;
@@ -349,10 +233,7 @@ export async function PUT(
     return NextResponse.json(article, { status: 200 });
   } catch (err) {
     console.error("Update error:", err);
-    return NextResponse.json(
-      { error: "Failed to update article" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update article" }, { status: 500 });
   }
 }
 
@@ -361,40 +242,25 @@ export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  // Check if admin
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
 
   await connectMongoDB();
 
   const { id } = params;
-
   if (!id) {
-    return NextResponse.json(
-      { error: "Article ID is required" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Article ID is required" }, { status: 400 });
   }
 
   try {
     const deleted = await Article.findByIdAndDelete(id);
-
     if (!deleted) {
-      return NextResponse.json(
-        { error: "Article not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
 
-    return NextResponse.json(
-      { message: "Article deleted successfully" },
-      { status: 200 }
-    );
+    return NextResponse.json({ message: "Article deleted successfully" }, { status: 200 });
   } catch (error) {
     console.error("Failed to delete article:", error);
-    return NextResponse.json(
-      { error: "Failed to delete article" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete article" }, { status: 500 });
   }
 }

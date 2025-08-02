@@ -5,9 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 
 export interface IAttachment {
   customId?: string;
-  type: "pdf" | "image" | "link" | "form" | "docx";
+  type: "pdf" | "image" | "form" | "docx";
   url: string;
-  name?: string; // optional display name
+  name?: string;
 }
 
 export interface ArticleSerialized {
@@ -47,25 +47,26 @@ const AttachmentSchema = new Schema<IAttachment & { customId: string }>(
     },
     type: {
       type: String,
-      enum: ["pdf", "image", "link", "form", "docx"],
+      enum: ["pdf", "image", "form", "docx"],
       required: true,
     },
     url: {
       type: String,
       required: true,
       validate: {
-        validator: function (v: string) {
+        validator: function (v: string): boolean {
           try {
+            // Accept any well-formed URL (Cloudinary etc.)
             new URL(v);
-            return v.startsWith("http://") || v.startsWith("https://");
+            return true;
           } catch {
             return false;
           }
         },
-        message: (props: any) => `${props.value} is not a valid URL!`,
+        message: (props: { value: string }) => `${props.value} is not a valid URL!`,
       },
     },
-    name: { type: String }, // optional
+    name: { type: String }, // Optional
   },
   { _id: false }
 );
@@ -76,7 +77,7 @@ const ArticleSchema = new Schema<IArticle>(
     content: { type: String, required: true },
     slug: { type: String, required: true, unique: true },
     subject: { type: String },
-    attachments: { type: [AttachmentSchema], default: [] }, // Fix for M1
+    attachments: { type: [AttachmentSchema], default: [] },
     upvotes: [String],
     downvotes: [String],
     tags: [{ type: String }],

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   Dialog,
@@ -11,22 +11,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Info,
-  Plus,
-  Link as LinkIcon,
-  X,
-  FileText,
-  Image,
-  FilePlus,
-} from "lucide-react";
+import { Info, X, FileText } from "lucide-react";
 import Tags from "@yaireo/tagify/dist/react.tagify";
 import "@yaireo/tagify/dist/tagify.css";
 import CustomEditor from "./CustomEditor";
 import { v4 as uuidv4 } from "uuid";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import toast from "react-hot-toast";
 
-function Tooltip({ children, tip }: { children: React.ReactNode; tip: string }) {
+function Tooltip({
+  children,
+  tip,
+}: {
+  children: React.ReactNode;
+  tip: string;
+}) {
   return (
     <TooltipPrimitive.Provider>
       <TooltipPrimitive.Root>
@@ -53,9 +52,10 @@ interface Tag {
 
 interface Attachment {
   customId?: string;
-  type: "pdf" | "image" | "link" | "form" | "docx";
+  type: "pdf" | "image" | "form" | "docx";
   url: string;
   name?: string;
+  file?: File;
 }
 
 interface ArticleModalProps {
@@ -76,16 +76,7 @@ interface FormValues {
   subject: string;
   tags: Tag[];
   content: string;
-  attachment?: FileList;
 }
-
-const attachmentTypes = [
-  { value: "link", label: "Link", icon: <LinkIcon size={16} /> },
-  { value: "pdf", label: "PDF", icon: <FileText size={16} /> },
-  { value: "image", label: "Image", icon: <Image size={16} /> },
-  { value: "form", label: "Form", icon: <FilePlus size={16} /> },
-  { value: "docx", label: "Word Document", icon: <FileText size={16} /> },
-];
 
 export default function ArticleModal({
   isOpen,
@@ -109,13 +100,6 @@ export default function ArticleModal({
   });
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [removedAttachments, setRemovedAttachments] = useState<Attachment[]>([]);
-
-  const [newAttachmentURL, setNewAttachmentURL] = useState("");
-  const [newAttachmentName, setNewAttachmentName] = useState("");
-  const [newAttachmentType, setNewAttachmentType] =
-    useState<Attachment["type"]>("link");
-
   const [tagSuggestions] = useState<string[]>([
     "news",
     "tech",
@@ -123,6 +107,10 @@ export default function ArticleModal({
     "tutorial",
     "design",
   ]);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // ref for file input to reset it
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     reset({
@@ -131,87 +119,84 @@ export default function ArticleModal({
       tags: initialData?.tags || [],
       content: initialData?.content || "",
     });
-    setAttachments(initialData?.attachments || []);
-    setRemovedAttachments([]);
-    setNewAttachmentURL("");
-    setNewAttachmentName("");
-    setNewAttachmentType("link");
+
+    const initialAttachments =
+      initialData?.attachments?.map((att) => ({
+        ...att,
+        customId: uuidv4(),
+      })) || [];
+
+    setAttachments(initialAttachments);
   }, [initialData, reset]);
 
-  function addAttachment() {
-    const trimmedUrl = newAttachmentURL.trim();
-    const trimmedName = newAttachmentName.trim();
-
-    if (!trimmedUrl) return;
-
-    const exists = attachments.some(
-      (att) =>
-        att.type === newAttachmentType &&
-        att.url === trimmedUrl &&
-        (att.name || "") === (trimmedName || "")
-    );
-
-    if (exists) return;
-
-    setAttachments((prev) => [
-      ...prev,
-      {
-        customId: uuidv4(),
-        type: newAttachmentType,
-        url: trimmedUrl,
-        name: trimmedName || undefined,
-      },
-    ]);
-
-    setNewAttachmentURL("");
-    setNewAttachmentName("");
+  function getAttachmentType(file: File): Attachment["type"] {
+    if (file.type.includes("image")) return "image";
+    if (file.type.includes("pdf")) return "pdf";
+    if (file.name.endsWith(".docx")) return "docx";
+    return "form";
   }
 
-  function removeAttachment(index: number) {
-    const attToRemove = attachments[index];
-    if (
-      initialData?.attachments?.some(
-        (att) =>
-          att.type === attToRemove.type &&
-          att.url === attToRemove.url &&
-          (att.name || "") === (attToRemove.name || "")
-      )
-    ) {
-      setRemovedAttachments((prev) => [...prev, attToRemove]);
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const newFiles = files.map((file) => ({
+      customId: uuidv4(),
+      type: getAttachmentType(file),
+      url: URL.createObjectURL(file),
+      name: file.name,
+      file,
+    }));
+
+    setAttachments((prev) => [...prev, ...newFiles]);
+
+    // Clear file input so user can re-upload same files if needed
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
-  }
 
-  const onFormSubmit = (data: FormValues) => {
+    // Show toast
+    toast.success("Attachment added");
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const onFormSubmit = async (data: FormValues) => {
+  setIsSaving(true);
+  try {
     const formData = new FormData();
 
     formData.append("title", data.title);
     formData.append("subject", data.subject);
     formData.append("content", data.content);
-    formData.append(
-      "tags",
-      JSON.stringify(data.tags.map((tag) => tag.value))
-    );
 
-    const files = data.attachment ? Array.from(data.attachment) : [];
-    files.forEach((file) => {
-      formData.append("attachment", file);
+    // ✅ Instead of JSON.stringify, use multiple entries
+    data.tags.forEach((tag) => formData.append("tags", tag.value));
+
+    // Append new uploaded files (blobs)
+    attachments.forEach((att) => {
+      if (att.file) {
+        formData.append("attachment", att.file);
+      }
     });
 
-    const currentAttachments = attachments.filter(
-      (att) =>
-        !removedAttachments.some(
-          (rem) =>
-            rem.type === att.type &&
-            rem.url === att.url &&
-            (rem.name || "") === (att.name || "")
-        )
-    );
+    // Add existing (non-new) attachments in JSON
+    const existing = attachments.filter((att) => !att.file);
+    if (existing.length > 0) {
+      formData.append(
+        "attachments",
+        JSON.stringify(existing.map(({ type, url, name }) => ({ type, url, name })))
+      );
+    }
 
-    formData.append("attachments", JSON.stringify(currentAttachments));
+    await onSubmit(formData);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
-    onSubmit(formData);
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -234,7 +219,9 @@ export default function ArticleModal({
               autoFocus
             />
             {errors.title && (
-              <p className="text-sm text-red-600 mt-1">{errors.title.message}</p>
+              <p className="text-sm text-red-600 mt-1">
+                {errors.title.message}
+              </p>
             )}
           </div>
 
@@ -246,7 +233,9 @@ export default function ArticleModal({
               {...register("subject", { required: "Subject is required" })}
             />
             {errors.subject && (
-              <p className="text-sm text-red-600 mt-1">{errors.subject.message}</p>
+              <p className="text-sm text-red-600 mt-1">
+                {errors.subject.message}
+              </p>
             )}
           </div>
 
@@ -272,11 +261,18 @@ export default function ArticleModal({
                   }}
                   value={value}
                   onChange={(e) => {
+                    const raw = e.detail.value;
+                    if (!raw?.trim()) {
+                      onChange([]); // or `onChange([{ value: "" }])` if needed
+                      return;
+                    }
+
                     try {
-                      const tags = JSON.parse(e.detail.value);
+                      const tags = JSON.parse(raw);
                       onChange(tags);
                     } catch (err) {
                       console.error("Invalid tag JSON:", err);
+                      onChange([]); // fallback
                     }
                   }}
                 />
@@ -300,101 +296,75 @@ export default function ArticleModal({
               )}
             />
             {errors.content && (
-              <p className="text-sm text-red-600 mt-1">{errors.content.message}</p>
+              <p className="text-sm text-red-600 mt-1">
+                {errors.content.message}
+              </p>
             )}
           </div>
 
           {/* File Upload */}
           <div>
             <Label htmlFor="attachment">Attachments (Upload files)</Label>
-            <Input id="attachment" type="file" multiple {...register("attachment")} />
+            <Input
+              id="attachment"
+              type="file"
+              multiple
+              onChange={handleFileUpload}
+              ref={fileInputRef}
+              disabled={isSaving}
+            />
           </div>
 
-          {/* Attachment UI */}
-          <div>
-            <Label>Attachments (Add links or files)</Label>
-            <div className="flex gap-2 items-center mb-3">
-              <select
-                className="border rounded px-2 py-1 text-sm cursor-pointer"
-                value={newAttachmentType}
-                onChange={(e) =>
-                  setNewAttachmentType(e.target.value as Attachment["type"])
-                }
-                aria-label="Select attachment type"
-              >
-                {attachmentTypes.map(({ value, label }) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <Input
-                placeholder="URL or file path"
-                className="flex-grow"
-                value={newAttachmentURL}
-                onChange={(e) => setNewAttachmentURL(e.target.value)}
-              />
-              <Input
-                placeholder="Optional name"
-                className="flex-grow"
-                value={newAttachmentName}
-                onChange={(e) => setNewAttachmentName(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addAttachment}
-                disabled={!newAttachmentURL.trim()}
-                title="Add attachment"
-              >
-                <Plus size={16} />
-              </Button>
-            </div>
-
-            {attachments.length > 0 && (
+          {/* Uploaded Attachments */}
+          {attachments.length > 0 && (
+            <div>
+              <Label>Uploaded Attachments</Label>
               <ul className="max-h-40 overflow-auto divide-y rounded border border-gray-200 dark:border-gray-700">
-                {attachments.map((att, idx) => {
-                  const typeInfo = attachmentTypes.find((t) => t.value === att.type);
-                  return (
-                    <li
-                      key={att.customId || idx}
-                      className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                {attachments.map((att, idx) => (
+                  <li
+                    key={att.customId || idx}
+                    className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <FileText size={16} />
+                      <span className="truncate max-w-xs">{att.name}</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAttachment(idx)}
+                      title="Remove attachment"
+                      aria-label="Remove attachment"
+                      disabled={isSaving}
                     >
-                      <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                        {typeInfo?.icon}
-                        <a
-                          href={att.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline hover:text-blue-600 truncate max-w-xs"
-                          title={att.name || att.url}
-                        >
-                          {att.name || att.url}
-                        </a>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeAttachment(idx)}
-                        title="Remove attachment"
-                        aria-label="Remove attachment"
-                      >
-                        <X size={16} />
-                      </Button>
-                    </li>
-                  );
-                })}
+                      <X size={16} />
+                    </Button>
+                  </li>
+                ))}
               </ul>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 mt-6">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={isSaving}
+            >
               Cancel
             </Button>
-            <Button type="submit">Save</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <span className="loading loading-spinner loading-sm mr-2"></span>
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>

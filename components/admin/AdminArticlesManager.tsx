@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, JSX } from "react";
 import ArticleModal from "./ArticleModal";
 import ConfirmationModal from "@/components/admin/ConfirmationModal";
 import {
@@ -11,16 +11,16 @@ import {
   ThumbsDown,
   FileText,
   Image,
-  Link as LinkIcon,
   FilePlus,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
-
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
+type AttachmentType = "pdf" | "image" | "form" | "docx";
+
 interface Attachment {
-  type: "pdf" | "image" | "link" | "form" | "docx";
+  type: AttachmentType;
   url: string;
   name?: string;
 }
@@ -77,78 +77,80 @@ export default function AdminArticlesManager() {
     setModalOpen(true);
   };
 
-  const handleSave = useCallback(
-    async (data: FormData) => {
-      if (saving) return;
-      setSaving(true);
 
-      const isEdit = !!editingArticle;
-      const url = isEdit
-        ? `/api/admin/articles/${editingArticle!._id}`
-        : "/api/admin/articles";
-      const method = isEdit ? "PUT" : "POST";
+ const handleSave = useCallback(
+  async (data: FormData) => {
+    if (saving) return;
+    setSaving(true);
 
-      try {
-        const title = data.get("title") as string | null;
-        const subject = (data.get("subject") as string | null) || "";
-        const content = data.get("content") as string | null;
+    const isEdit = !!editingArticle;
+    const url = isEdit
+      ? `/api/admin/articles/${editingArticle!._id}`
+      : "/api/admin/articles";
+    const method = isEdit ? "PUT" : "POST";
 
-        const tagsJson = data.get("tags") as string | null;
-        let tags: string[] = [];
-        if (tagsJson) {
-          try {
-            tags = JSON.parse(tagsJson);
-          } catch {
-            console.warn("Failed to parse tags JSON");
-          }
+    try {
+      const title = data.get("title") as string | null;
+      const slug = data.get("slug") as string | null; // Optional: if you want to handle slug
+      const subject = (data.get("subject") as string | null) || "";
+      const content = data.get("content") as string | null;
+      const tags = data.getAll("tags") as string[];
+      const files = data.getAll("attachment") as File[];
+
+      const attachmentsJson = data.get("attachments") as string | null;
+      let attachments: Attachment[] = [];
+      if (attachmentsJson) {
+        try {
+          attachments = JSON.parse(attachmentsJson);
+        } catch {
+          console.warn("Failed to parse attachments JSON");
         }
-
-        const files = data.getAll("attachment") as File[];
-        const attachmentsJson = data.get("attachments") as string | null;
-        let attachments: { type: string; url: string; name?: string }[] = [];
-        if (attachmentsJson) {
-          try {
-            attachments = JSON.parse(attachmentsJson);
-          } catch {
-            console.warn("Failed to parse attachments JSON");
-          }
-        }
-
-        const sendData = new FormData();
-        if (title) sendData.append("title", title);
-        sendData.append("subject", subject);
-        if (content) sendData.append("content", content);
-        sendData.append("tags", JSON.stringify(tags));
-        files.forEach((file) => sendData.append("attachment", file));
-        if (attachments.length > 0) {
-          sendData.append("attachments", JSON.stringify(attachments));
-        }
-
-        const res = await fetch(url, {
-          method,
-          body: sendData,
-        });
-
-        if (!res.ok) {
-          const json = await res.json().catch(() => null);
-          throw new Error(json?.error || res.statusText);
-        }
-
-        setModalOpen(false);
-        setEditingArticle(null);
-        await fetchArticles();
-        toast.success(
-          `Article ${isEdit ? "updated" : "created"} successfully!`
-        );
-      } catch (err: any) {
-        console.error("Save failed:", err);
-        toast.error(`Error saving article: ${err.message || err}`);
-      } finally {
-        setSaving(false);
       }
-    },
-    [saving, editingArticle, fetchArticles]
-  );
+
+      const sendData = new FormData();
+      if (title) sendData.append("title", title);
+      if (slug) sendData.append("slug", slug);
+      sendData.append("subject", subject);
+      if (content) sendData.append("content", content);
+      tags.forEach((tag) => sendData.append("tags", tag));
+      files.forEach((file) => sendData.append("attachment", file));
+      if (attachments.length > 0) {
+        sendData.append("attachments", JSON.stringify(attachments));
+      }
+
+      // Debug log here — sendData exists here
+      console.log("Sending article data:");
+      for (const [key, value] of sendData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}: File - ${value.name} (${value.type})`);
+        } else {
+          console.log(`${key}:`, value);
+        }
+      }
+
+      const res = await fetch(url, {
+        method,
+        body: sendData,
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        throw new Error(json?.error || res.statusText);
+      }
+
+      setModalOpen(false);
+      setEditingArticle(null);
+      await fetchArticles();
+      toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
+    } catch (err: any) {
+      console.error("Save failed:", err);
+      toast.error(`Error saving article: ${err.message || err}`);
+    } finally {
+      setSaving(false);
+    }
+  },
+  [saving, editingArticle, fetchArticles]
+);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -167,11 +169,9 @@ export default function AdminArticlesManager() {
     [fetchArticles]
   );
 
-  // Icon map for attachments
-  const attachmentIconMap = {
+  const attachmentIconMap: Record<AttachmentType, JSX.Element> = {
     pdf: <FileText size={16} />,
     image: <Image size={16} />,
-    link: <LinkIcon size={16} />,
     form: <FilePlus size={16} />,
     docx: <FileText size={16} />,
   };
@@ -237,56 +237,47 @@ export default function AdminArticlesManager() {
                   <td className="px-4 py-2">
                     {a.attachments && a.attachments.length > 0 ? (
                       <div className="flex flex-wrap gap-3">
-                        {(
-                          [
-                            "image",
-                            "pdf",
-                            "link",
-                            "form",
-                            "docx",
-                          ] as Attachment["type"][]
-                        ).map((type) => {
-                          const count =
-                            a.attachments?.filter((att) => att.type === type)
-                              .length || 0;
-                          if (count === 0) return null;
-                          return (
-                            <TooltipPrimitive.Provider key={type}>
-                              <TooltipPrimitive.Root>
-                                <TooltipPrimitive.Trigger asChild>
-                                  <div
-                                    className="flex items-center gap-1 cursor-default select-none rounded bg-gray-100 px-2 py-1 text-sm text-gray-700 hover:bg-gray-200"
-                                    aria-label={`${count} ${type}${
-                                      count > 1 ? "s" : ""
-                                    }`}
-                                  >
-                                    {attachmentIconMap[type] || (
-                                      <LinkIcon size={16} />
-                                    )}
-                                    <span>{count}</span>
-                                  </div>
-                                </TooltipPrimitive.Trigger>
-                                <TooltipPrimitive.Portal>
-                                  <TooltipPrimitive.Content
-                                    side="top"
-                                    align="center"
-                                    sideOffset={5}
-                                    className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
-                                  >
-                                    {`${count} ${type}${count > 1 ? "s" : ""}`}
-                                    <TooltipPrimitive.Arrow className="fill-gray-800" />
-                                  </TooltipPrimitive.Content>
-                                </TooltipPrimitive.Portal>
-                              </TooltipPrimitive.Root>
-                            </TooltipPrimitive.Provider>
-                          );
-                        })}
+                        {(["image", "pdf", "form", "docx"] as AttachmentType[]).map(
+                          (type) => {
+                            const count = a.attachments?.filter(
+                              (att) => att.type === type
+                            ).length;
+                            if (!count) return null;
+                            return (
+                              <TooltipPrimitive.Provider key={type}>
+                                <TooltipPrimitive.Root>
+                                  <TooltipPrimitive.Trigger asChild>
+                                    <div
+                                      className="flex items-center gap-1 cursor-default select-none rounded bg-gray-100 px-2 py-1 text-sm text-gray-700 hover:bg-gray-200"
+                                      aria-label={`${count} ${type}${
+                                        count > 1 ? "s" : ""
+                                      }`}
+                                    >
+                                      {attachmentIconMap[type]}
+                                      <span>{count}</span>
+                                    </div>
+                                  </TooltipPrimitive.Trigger>
+                                  <TooltipPrimitive.Portal>
+                                    <TooltipPrimitive.Content
+                                      side="top"
+                                      align="center"
+                                      sideOffset={5}
+                                      className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
+                                    >
+                                      {`${count} ${type}${count > 1 ? "s" : ""}`}
+                                      <TooltipPrimitive.Arrow className="fill-gray-800" />
+                                    </TooltipPrimitive.Content>
+                                  </TooltipPrimitive.Portal>
+                                </TooltipPrimitive.Root>
+                              </TooltipPrimitive.Provider>
+                            );
+                          }
+                        )}
                       </div>
                     ) : (
                       <span className="text-gray-400">None</span>
                     )}
                   </td>
-
                   <td className="px-4 py-2 text-xs text-gray-500">
                     {new Date(a.createdAt).toLocaleString()}
                   </td>
@@ -328,7 +319,7 @@ export default function AdminArticlesManager() {
                 tags: editingArticle.tags?.map((tag) => ({ value: tag })) || [],
                 attachments:
                   editingArticle.attachments?.map((att) => ({
-                    type: att.type || "link",
+                    type: att.type ?? "form",
                     url: att.url,
                     name: att.name,
                   })) || [],

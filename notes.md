@@ -93,10 +93,3 @@ Summary: Server-side detail page showing one article in full.
 
 ## 
 
-
-TODO
-attchments working but multipe attchments links and stuff (check atlas att test 8)
-need to remove form from attachments in modal
-ATTACHMENTS ARE SAVED IN MY PUBLIC FOLDER???????????????
-need to be able to add multiple images.
-editor still not fully functional

@@ -3,12 +3,11 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Grid, FileText, Settings } from "lucide-react"; // Grid for dashboard
+import { Home, Grid, FileText } from "lucide-react"; // Grid for dashboard
 
 const navItems = [
   { href: "/admin", icon: Grid, label: "Dashboard" },         // Dashboard icon
   { href: "/admin/articles", icon: FileText, label: "Articles" },
-  { href: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
