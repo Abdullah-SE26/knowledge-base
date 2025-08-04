@@ -93,4 +93,3 @@ Summary: Server-side detail page showing one article in full.
 
 ## 
 
-

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useMemo, Suspense } from "react";
+import React from "react";
+import { motion } from "framer-motion"; // ✅ correct
 import { cn } from "@/lib/utils";
 import dynamic from "next/dynamic";
 

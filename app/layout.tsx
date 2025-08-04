@@ -46,9 +46,8 @@ export default function RootLayout({
             <Providers>
               <Navbar />
               {children}
-              <Analytics/>
-              <SpeedInsights />
-              <PerformanceMonitor />
+              {/* <Analytics/>
+              <SpeedInsights /> */}
               <Footer/>
             </Providers>
           </div>
