@@ -1,16 +1,18 @@
-"use client";
-
-import React from "react";
+import React, { Suspense, useMemo } from "react";
 import { motion } from "framer-motion"; // ✅ correct
 import { cn } from "@/lib/utils";
 
-export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
-  const rows = new Array(150).fill(1);
-  const cols = new Array(100).fill(1);
-  const colors = [
+// No need for dynamic import for motion.div
 
+const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
+  const dimensions = useMemo(() => ({
+    rows: new Array(75).fill(1),
+    cols: new Array(50).fill(1),
+  }), []);
+
+  const colors = useMemo(() => [
     "#E6E6FF",
-    "#B8B8FF",
+    "#B8B8FF", 
     "#8A8AFF",
     "#5C5CFF",
     "#2E2EFF",
@@ -20,10 +22,11 @@ export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
     "#00008B",
     "#000047",
     "#00001A",
-  ];
-  const getRandomColor = () => {
+  ], []);
+
+  const getRandomColor = useMemo(() => () => {
     return colors[Math.floor(Math.random() * colors.length)];
-  };
+  }, [colors]);
 
   return (
     <div
@@ -36,30 +39,31 @@ export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
       )}
       {...rest}
     >
-      {rows.map((_, i) => (
-        <motion.div
-          key={`row${i}`}
-          className="relative h-8 w-16 border-l border-slate-200 dark:border-slate-800"
-        >
-          {cols.map((_, j) => (
-            <motion.div
-              whileHover={{
-                backgroundColor: `${getRandomColor()}`,
-                transition: { duration: 0 },
-              }}
-              animate={{
-                transition: { duration: 2 },
-              }}
-              key={`col${j}`}
-              className="relative h-8 w-16 border-t border-r border-slate-200 dark:border-slate-800"
-            >
-              {/* Plus sign SVG removed */}
-            </motion.div>
-          ))}
-        </motion.div>
-      ))}
+      <Suspense fallback={<div className="w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800" />}>
+        {dimensions.rows.map((_, i) => (
+          <motion.div
+            key={`row${i}`}
+            className="relative h-8 w-16 border-l border-slate-200 dark:border-slate-800"
+          >
+            {dimensions.cols.map((_, j) => (
+              <motion.div
+                whileHover={{
+                  backgroundColor: `${getRandomColor()}`,
+                  transition: { duration: 0 },
+                }}
+                animate={{
+                  transition: { duration: 2 },
+                }}
+                key={`col${j}`}
+                className="relative h-8 w-16 border-t border-r border-slate-200 dark:border-slate-800"
+              />
+            ))}
+          </motion.div>
+        ))}
+      </Suspense>
     </div>
   );
 };
 
-export const Boxes = React.memo(BoxesCore);
+export const BoxesCore = React.memo(BoxesCoreComponent);
+export const Boxes = BoxesCore;

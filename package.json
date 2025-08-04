@@ -5,8 +5,11 @@
   "scripts": {
     "dev": "next dev ",
     "build": "next build",
+    "build:analyze": "ANALYZE=true npm run build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "perf:audit": "npm run build && npx lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html",
+    "perf:bundle": "npm run build:analyze"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",
@@ -54,13 +57,13 @@
     "lucide-react": "^0.525.0",
     "mongodb": "^6.17.0",
     "mongoose": "^8.16.4",
-    "next": "15.4.2",
+    "next": "^15.4.2",
     "next-auth": "^4.24.11",
     "next-themes": "^0.4.6",
     "nodemailer": "^6.10.1",
-    "react": "19.1.0",
+    "react": "^19.1.0",
     "react-chartjs-2": "^5.3.0",
-    "react-dom": "19.1.0",
+    "react-dom": "^19.1.0",
     "react-hook-form": "^7.61.1",
     "react-hot-toast": "^2.5.2",
     "slugify": "^1.6.6",
@@ -71,6 +74,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@next/bundle-analyzer": "^15.4.5",
     "@shadcn/ui": "^0.0.4",
     "@tailwindcss/postcss": "^4",
     "@types/busboy": "^1.5.4",
