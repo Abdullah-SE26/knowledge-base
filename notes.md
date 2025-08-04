@@ -93,3 +93,9 @@ Summary: Server-side detail page showing one article in full.
 
 ## 
 
+TODO
+fix the attachments not opening issue
+use markdown editor instead of the current editor
+add pagination
+add serach
+delete unused packages and libraries
