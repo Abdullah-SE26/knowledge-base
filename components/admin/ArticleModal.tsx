@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import {
   Dialog,
@@ -18,6 +18,7 @@ import CustomEditor from "./CustomEditor";
 import { v4 as uuidv4 } from "uuid";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import toast from "react-hot-toast";
+import { UploadDropzone } from "@/components/admin/FileUploadDropzone";
 
 function Tooltip({
   children,
@@ -52,10 +53,10 @@ interface Tag {
 
 interface Attachment {
   customId?: string;
-  type: "pdf" | "image" | "form" | "docx";
+  type: "pdf" | "image" | "form" | "docx" | "ppt";
   url: string;
   name?: string;
-  file?: File;
+  public_id?: string;
 }
 
 interface ArticleModalProps {
@@ -76,6 +77,20 @@ interface FormValues {
   subject: string;
   tags: Tag[];
   content: string;
+}
+
+function getAttachmentTypeFromFilename(filename: string): Attachment["type"] {
+  const lower = filename.toLowerCase();
+  if (
+    lower.endsWith(".png") ||
+    lower.endsWith(".jpg") ||
+    lower.endsWith(".jpeg") ||
+    lower.endsWith(".gif")
+  )
+    return "image";
+  if (lower.endsWith(".pdf")) return "pdf";
+  if (lower.endsWith(".docx") || lower.endsWith(".doc")) return "docx";
+  return "form"; // fallback
 }
 
 export default function ArticleModal({
@@ -108,9 +123,7 @@ export default function ArticleModal({
     "design",
   ]);
   const [isSaving, setIsSaving] = useState(false);
-
-  // ref for file input to reset it
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const id = useId();
 
   useEffect(() => {
     reset({
@@ -129,81 +142,40 @@ export default function ArticleModal({
     setAttachments(initialAttachments);
   }, [initialData, reset]);
 
-  function getAttachmentType(file: File): Attachment["type"] {
-    if (file.type.includes("image")) return "image";
-    if (file.type.includes("pdf")) return "pdf";
-    if (file.name.endsWith(".docx")) return "docx";
-    return "form";
-  }
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const newFiles = files.map((file) => ({
-      customId: uuidv4(),
-      type: getAttachmentType(file),
-      url: URL.createObjectURL(file),
-      name: file.name,
-      file,
-    }));
-
-    setAttachments((prev) => [...prev, ...newFiles]);
-
-    // Clear file input so user can re-upload same files if needed
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-
-    // Show toast
-    toast.success("Attachment added");
-  };
-
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const onFormSubmit = async (data: FormValues) => {
-  setIsSaving(true);
-  try {
-    const formData = new FormData();
+    setIsSaving(true);
+    try {
+      const formData = new FormData();
+      formData.append("title", data.title);
+      formData.append("subject", data.subject);
+      formData.append("content", data.content);
+      data.tags.forEach((tag) => formData.append("tags", tag.value));
 
-    formData.append("title", data.title);
-    formData.append("subject", data.subject);
-    formData.append("content", data.content);
-
-    // ✅ Instead of JSON.stringify, use multiple entries
-    data.tags.forEach((tag) => formData.append("tags", tag.value));
-
-    // Append new uploaded files (blobs)
-    attachments.forEach((att) => {
-      if (att.file) {
-        formData.append("attachment", att.file);
-      }
-    });
-
-    // Add existing (non-new) attachments in JSON
-    const existing = attachments.filter((att) => !att.file);
-    if (existing.length > 0) {
-      formData.append(
-        "attachments",
-        JSON.stringify(existing.map(({ type, url, name }) => ({ type, url, name })))
+      const validTypes = new Set(["pdf", "image", "form", "docx", "ppt"]);
+      const serializedAttachments = attachments.map(
+        ({ type, url, name, public_id }) => ({
+          type: validTypes.has(type) ? type : "form",
+          url,
+          name,
+          public_id,
+        })
       );
+
+      formData.append("attachments", JSON.stringify(serializedAttachments));
+
+      await onSubmit(formData);
+    } finally {
+      setIsSaving(false);
     }
-
-    await onSubmit(formData);
-  } finally {
-    setIsSaving(false);
-  }
-};
-
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        aria-describedby="article-dialog-desc"
-        className="max-w-3xl max-h-[90vh] overflow-auto"
-      >
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Edit Article" : "Create New Article"}
@@ -212,9 +184,9 @@ export default function ArticleModal({
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
           {/* Title */}
           <div>
-            <Label htmlFor="title">Title *</Label>
+            <Label htmlFor={`${id}-title`}>Title *</Label>
             <Input
-              id="title"
+              id={`${id}-title`}
               {...register("title", { required: "Title is required" })}
               autoFocus
             />
@@ -227,9 +199,9 @@ export default function ArticleModal({
 
           {/* Subject */}
           <div>
-            <Label htmlFor="subject">Subject *</Label>
+            <Label htmlFor={`${id}-subject`}>Subject *</Label>
             <Input
-              id="subject"
+              id={`${id}-subject`}
               {...register("subject", { required: "Subject is required" })}
             />
             {errors.subject && (
@@ -241,7 +213,7 @@ export default function ArticleModal({
 
           {/* Tags */}
           <div>
-            <Label className="flex items-center gap-2" htmlFor="tags">
+            <Label className="flex items-center gap-2" htmlFor={`${id}-tags`}>
               <span>Tags</span>
               <Tooltip tip="Press Enter to create a tag">
                 <Info
@@ -261,18 +233,11 @@ export default function ArticleModal({
                   }}
                   value={value}
                   onChange={(e) => {
-                    const raw = e.detail.value;
-                    if (!raw?.trim()) {
-                      onChange([]); // or `onChange([{ value: "" }])` if needed
-                      return;
-                    }
-
                     try {
-                      const tags = JSON.parse(raw);
+                      const tags = JSON.parse(e.detail.value);
                       onChange(tags);
-                    } catch (err) {
-                      console.error("Invalid tag JSON:", err);
-                      onChange([]); // fallback
+                    } catch {
+                      onChange([]);
                     }
                   }}
                 />
@@ -282,7 +247,7 @@ export default function ArticleModal({
 
           {/* Content */}
           <div>
-            <Label htmlFor="content">Content *</Label>
+            <Label htmlFor={`${id}-content`}>Content *</Label>
             <Controller
               name="content"
               control={control}
@@ -302,20 +267,36 @@ export default function ArticleModal({
             )}
           </div>
 
-          {/* File Upload */}
+          {/* UploadThing Dropzone */}
           <div>
-            <Label htmlFor="attachment">Attachments (Upload files)</Label>
-            <Input
-              id="attachment"
-              type="file"
-              multiple
-              onChange={handleFileUpload}
-              ref={fileInputRef}
+            <Label>Attachments (Upload files)</Label>
+            <UploadDropzone
+              endpoint="anyFileUploader"
+              onClientUploadComplete={(files) => {
+                const existingUrls = new Set(attachments.map((a) => a.url));
+                const newAttachments = files
+                  .filter((file) => !existingUrls.has(file.ufsUrl))
+                  .map((file) => ({
+                    customId: uuidv4(),
+                    url: file.ufsUrl,
+                    name: file.name,
+                    type: getAttachmentTypeFromFilename(file.name),
+                  }));
+
+                setAttachments((prev) => [...prev, ...newAttachments]);
+
+                if (newAttachments.length > 0)
+                  toast.success("Attachment uploaded");
+              }}
+              onUploadError={(error) => {
+                console.error("Upload failed:", error);
+                toast.error("Upload failed. Please try again.");
+              }}
               disabled={isSaving}
             />
           </div>
 
-          {/* Uploaded Attachments */}
+          {/* Attachment List */}
           {attachments.length > 0 && (
             <div>
               <Label>Uploaded Attachments</Label>
@@ -326,8 +307,27 @@ export default function ArticleModal({
                     className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
                   >
                     <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                      <FileText size={16} />
-                      <span className="truncate max-w-xs">{att.name}</span>
+                      {att.type === "image" ? (
+                        <img
+                          src={att.url}
+                          alt={att.name}
+                          className="w-6 h-6 object-cover rounded"
+                        />
+                      ) : att.type === "pdf" ? (
+                        <span className="text-red-500">📄</span>
+                      ) : att.type === "docx" ? (
+                        <span className="text-blue-500">📝</span>
+                      ) : (
+                        <FileText size={16} />
+                      )}
+                      <a
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate max-w-xs text-blue-600 hover:underline"
+                      >
+                        {att.name}
+                      </a>
                     </div>
                     <Button
                       type="button"

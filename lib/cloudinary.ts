@@ -20,18 +20,23 @@ export async function uploadToCloudinary(
   buffer: Buffer,
   filename: string,
   folder: string
-): Promise<{ url: string }> {
+): Promise<{ url: string; public_id: string }> {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        public_id: filename.replace(/\.[^/.]+$/, ""),
-        resource_type: "auto", // ✅ This is critical for non-images
+        public_id: filename.replace(/\.[^/.]+$/, ""), // strip extension
+        resource_type: "auto",
       },
       (error, result) => {
         if (error) return reject(error);
-        if (!result?.secure_url) return reject(new Error("Upload failed"));
-        resolve({ url: result.secure_url });
+        if (!result?.secure_url || !result.public_id) {
+          return reject(new Error("Cloudinary upload failed"));
+        }
+        resolve({
+          url: result.secure_url,
+          public_id: result.public_id,
+        });
       }
     );
 

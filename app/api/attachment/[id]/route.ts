@@ -13,7 +13,6 @@ export async function GET(
   req: Request,
   { params }: { params: { id: string } }
 ) {
-  // Check user session and auth
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,25 +24,41 @@ export async function GET(
   }
 
   try {
-    // Get resource info from Cloudinary
     const resource = await cloudinary.v2.api.resource(publicId);
-
-    // Fetch the file from Cloudinary
     const fileUrl = resource.secure_url;
-    const response = await fetch(fileUrl);
 
+    const response = await fetch(fileUrl);
     if (!response.ok) {
       return NextResponse.json({ error: "Failed to fetch file from Cloudinary" }, { status: 500 });
     }
 
     const buffer = await response.arrayBuffer();
 
-    // Return the file as response with appropriate headers
+    // Get the file format and MIME type
+    const format = resource.format.toLowerCase();
+    const filename = resource.public_id.split("/").pop(); // safe filename fallback
+
+    let contentType = "application/octet-stream";
+
+    if (format === "pdf") {
+      contentType = "application/pdf";
+    } else if (resource.resource_type === "image") {
+      contentType = `image/${format}`;
+    } else if (format === "docx") {
+      contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    } else if (format === "doc") {
+      contentType = "application/msword";
+    } else if (format === "pptx") {
+      contentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    } else if (format === "xlsx") {
+      contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    }
+
     return new NextResponse(Buffer.from(buffer), {
       status: 200,
       headers: {
-        "Content-Type": resource.format.startsWith("image") ? `image/${resource.format}` : "application/octet-stream",
-        "Content-Disposition": `inline; filename="${resource.public_id}.${resource.format}"`,
+        "Content-Type": contentType,
+        "Content-Disposition": `inline; filename="${filename}.${format}"`,
       },
     });
   } catch (error) {

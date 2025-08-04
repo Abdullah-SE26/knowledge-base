@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export interface IAttachment {
   customId?: string;
-  type: "pdf" | "image" | "form" | "docx";
+  type: "pdf" | "image" | "form" | "docx" | "ppt";
   url: string;
   name?: string;
 }
@@ -47,7 +47,7 @@ const AttachmentSchema = new Schema<IAttachment & { customId: string }>(
     },
     type: {
       type: String,
-      enum: ["pdf", "image", "form", "docx"],
+      enum: ["pdf", "image", "form", "docx", "ppt", "pptx", "jpg", "png"],
       required: true,
     },
     url: {

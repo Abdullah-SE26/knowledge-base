@@ -17,12 +17,13 @@ import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
-type AttachmentType = "pdf" | "image" | "form" | "docx";
+type AttachmentType = "pdf" | "image" | "form" | "docx" | "ppt";
 
 interface Attachment {
   type: AttachmentType;
   url: string;
   name?: string;
+  public_id?: string;
 }
 
 interface Article {
@@ -77,80 +78,91 @@ export default function AdminArticlesManager() {
     setModalOpen(true);
   };
 
+  const validAttachmentTypes = new Set(["pdf", "image", "form", "docx", "ppt"]);
 
- const handleSave = useCallback(
-  async (data: FormData) => {
-    if (saving) return;
-    setSaving(true);
+  const handleSave = useCallback(
+    async (data: FormData) => {
+      if (saving) return;
+      setSaving(true);
 
-    const isEdit = !!editingArticle;
-    const url = isEdit
-      ? `/api/admin/articles/${editingArticle!._id}`
-      : "/api/admin/articles";
-    const method = isEdit ? "PUT" : "POST";
+      const isEdit = !!editingArticle;
+      const url = isEdit
+        ? `/api/admin/articles/${editingArticle!._id}`
+        : "/api/admin/articles";
+      const method = isEdit ? "PUT" : "POST";
 
-    try {
-      const title = data.get("title") as string | null;
-      const slug = data.get("slug") as string | null; // Optional: if you want to handle slug
-      const subject = (data.get("subject") as string | null) || "";
-      const content = data.get("content") as string | null;
-      const tags = data.getAll("tags") as string[];
-      const files = data.getAll("attachment") as File[];
+      try {
+        const title = data.get("title") as string | null;
+        const slug = data.get("slug") as string | null;
+        const subject = (data.get("subject") as string | null) || "";
+        const content = data.get("content") as string | null;
+        const tags = data.getAll("tags") as string[];
+        const attachmentsJson = data.get("attachments") as string | null;
 
-      const attachmentsJson = data.get("attachments") as string | null;
-      let attachments: Attachment[] = [];
-      if (attachmentsJson) {
-        try {
-          attachments = JSON.parse(attachmentsJson);
-        } catch {
-          console.warn("Failed to parse attachments JSON");
+        console.log("handleSave data:");
+        console.log({ title, slug, subject, content, tags, attachmentsJson });
+
+        let attachments: Attachment[] = [];
+        if (attachmentsJson) {
+          try {
+            const parsed = JSON.parse(attachmentsJson);
+            if (Array.isArray(parsed)) {
+              attachments = parsed.map((att) => {
+                let type = att.type;
+                if (!validAttachmentTypes.has(type)) {
+                  console.warn(
+                    `Invalid attachment type "${type}" replaced with "form"`
+                  );
+                  type = "form";
+                }
+                return {
+                  ...att,
+                  type,
+                };
+              });
+            }
+          } catch (err) {
+            console.warn("Failed to parse attachments JSON", err);
+          }
         }
-      }
+        console.log("Parsed attachments:", attachments);
 
-      const sendData = new FormData();
-      if (title) sendData.append("title", title);
-      if (slug) sendData.append("slug", slug);
-      sendData.append("subject", subject);
-      if (content) sendData.append("content", content);
-      tags.forEach((tag) => sendData.append("tags", tag));
-      files.forEach((file) => sendData.append("attachment", file));
-      if (attachments.length > 0) {
-        sendData.append("attachments", JSON.stringify(attachments));
-      }
+        const sendData = new FormData();
+        if (title) sendData.append("title", title);
+        if (slug) sendData.append("slug", slug);
+        sendData.append("subject", subject);
+        if (content) sendData.append("content", content);
+        tags.forEach((tag) => sendData.append("tags", tag));
 
-      // Debug log here — sendData exists here
-      console.log("Sending article data:");
-      for (const [key, value] of sendData.entries()) {
-        if (value instanceof File) {
-          console.log(`${key}: File - ${value.name} (${value.type})`);
-        } else {
-          console.log(`${key}:`, value);
+        // ✅ FIX: Only send serialized metadata, not files
+        if (attachments.length > 0) {
+          sendData.append("attachments", JSON.stringify(attachments));
         }
+
+        const res = await fetch(url, {
+          method,
+          body: sendData,
+        });
+
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          console.error("API Error Response:", json);
+          throw new Error(json?.error || res.statusText);
+        }
+
+        setModalOpen(false);
+        setEditingArticle(null);
+        await fetchArticles();
+        toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
+      } catch (err: any) {
+        console.error("Save failed:", err);
+        toast.error(`Error saving article: ${err.message || err}`);
+      } finally {
+        setSaving(false);
       }
-
-      const res = await fetch(url, {
-        method,
-        body: sendData,
-      });
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        throw new Error(json?.error || res.statusText);
-      }
-
-      setModalOpen(false);
-      setEditingArticle(null);
-      await fetchArticles();
-      toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
-    } catch (err: any) {
-      console.error("Save failed:", err);
-      toast.error(`Error saving article: ${err.message || err}`);
-    } finally {
-      setSaving(false);
-    }
-  },
-  [saving, editingArticle, fetchArticles]
-);
+    },
+    [saving, editingArticle, fetchArticles]
+  );
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -174,6 +186,7 @@ export default function AdminArticlesManager() {
     image: <Image size={16} />,
     form: <FilePlus size={16} />,
     docx: <FileText size={16} />,
+    ppt: <FileText size={16} />,
   };
 
   return (
@@ -207,10 +220,7 @@ export default function AdminArticlesManager() {
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {articles.map((a) => (
-                <tr
-                  key={a._id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
+                <tr key={a._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-2 max-w-xs break-words">
                     <Link
                       href={`/articles/${a.slug}`}
@@ -237,7 +247,7 @@ export default function AdminArticlesManager() {
                   <td className="px-4 py-2">
                     {a.attachments && a.attachments.length > 0 ? (
                       <div className="flex flex-wrap gap-3">
-                        {(["image", "pdf", "form", "docx"] as AttachmentType[]).map(
+                        {(["image", "pdf", "form", "docx", "ppt"] as AttachmentType[]).map(
                           (type) => {
                             const count = a.attachments?.filter(
                               (att) => att.type === type
@@ -322,6 +332,7 @@ export default function AdminArticlesManager() {
                     type: att.type ?? "form",
                     url: att.url,
                     name: att.name,
+                    public_id: att.public_id,
                   })) || [],
               }
             : undefined
