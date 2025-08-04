@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Info, X, FileText } from "lucide-react";
 import Tags from "@yaireo/tagify/dist/react.tagify";
 import "@yaireo/tagify/dist/tagify.css";
 import CustomEditor from "./CustomEditor";
@@ -19,6 +18,16 @@ import { v4 as uuidv4 } from "uuid";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import toast from "react-hot-toast";
 import { UploadDropzone } from "@/components/admin/FileUploadDropzone";
+import {
+  Info,
+  X,
+  FileText,
+  FileVideo,
+  FilePieChart,
+  FileSpreadsheet,
+  File,
+  FilePlus,
+} from "lucide-react";
 
 function Tooltip({
   children,
@@ -53,7 +62,7 @@ interface Tag {
 
 interface Attachment {
   customId?: string;
-  type: "pdf" | "image" | "form" | "docx" | "ppt";
+  type: "pdf" | "image" | "form" | "docx" | "ppt" | "pptx" | "xlsx" | "video";
   url: string;
   name?: string;
   public_id?: string;
@@ -90,6 +99,9 @@ function getAttachmentTypeFromFilename(filename: string): Attachment["type"] {
     return "image";
   if (lower.endsWith(".pdf")) return "pdf";
   if (lower.endsWith(".docx") || lower.endsWith(".doc")) return "docx";
+  if (lower.endsWith(".ppt") || lower.endsWith(".pptx")) return "ppt";
+  if (lower.endsWith(".xlsx")) return "xlsx";
+  if (lower.endsWith(".mp4") || lower.endsWith(".webm")) return "video";
   return "form"; // fallback
 }
 
@@ -155,7 +167,16 @@ export default function ArticleModal({
       formData.append("content", data.content);
       data.tags.forEach((tag) => formData.append("tags", tag.value));
 
-      const validTypes = new Set(["pdf", "image", "form", "docx", "ppt"]);
+      const validTypes = new Set([
+        "pdf",
+        "image",
+        "form",
+        "docx",
+        "ppt",
+        "pptx",
+        "xlsx",
+        "video",
+      ]);
       const serializedAttachments = attachments.map(
         ({ type, url, name, public_id }) => ({
           type: validTypes.has(type) ? type : "form",
@@ -314,12 +335,21 @@ export default function ArticleModal({
                           className="w-6 h-6 object-cover rounded"
                         />
                       ) : att.type === "pdf" ? (
-                        <span className="text-red-500">📄</span>
+                        <FileText className="w-5 h-5 text-red-500" />
                       ) : att.type === "docx" ? (
-                        <span className="text-blue-500">📝</span>
+                        <FileText className="w-5 h-5 text-blue-600" />
+                      ) : att.type === "ppt" || att.type ==="pptx" ? (
+                        <FilePieChart className="w-5 h-5 text-orange-500" />
+                      ) : att.type === "xlsx" ? (
+                        <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                      ) : att.type === "form" ? (
+                        <FilePlus className="w-5 h-5 text-indigo-500" />
+                      ) : att.type === "video" ? (
+                        <FileVideo className="w-5 h-5 text-purple-600" />
                       ) : (
-                        <FileText size={16} />
+                        <File className="w-5 h-5 text-gray-500" />
                       )}
+
                       <a
                         href={att.url}
                         target="_blank"
