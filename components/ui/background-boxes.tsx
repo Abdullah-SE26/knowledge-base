@@ -13,6 +13,7 @@ const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
   const colors = useMemo(() => [
     "#E6E6FF",
     "#B8B8FF",
+    "#B8B8FF",
     "#8A8AFF",
     "#5C5CFF",
     "#2E2EFF",
@@ -24,7 +25,10 @@ const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
     "#00001A",
   ];
   const getRandomColor = () => {
+  ];
+  const getRandomColor = () => {
     return colors[Math.floor(Math.random() * colors.length)];
+  };
   };
 
   return (
@@ -64,4 +68,5 @@ const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
   );
 };
 
+export const Boxes = React.memo(BoxesCore);
 export const Boxes = React.memo(BoxesCore);
