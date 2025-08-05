@@ -1,26 +1,20 @@
-import {
-  Navbar,
-  NavbarCollapse,
-  NavbarLink,
-  NavbarToggle,
-} from "flowbite-react";
+import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import LogoutButton from "./LogoutButton";
+import LogoSwitcher from "./LogoSwitcher";
+import ModeToggleWrapper from "./ModeTogglerWrapper";
 import {
-  LogOut,
-  ChevronDown,
-  UserCog,
   Home,
   FileTextIcon,
   HeadsetIcon,
   GlobeIcon,
+  ChevronDown,
+  UserCog,
+  LogOut,
 } from "lucide-react";
-import ModeToggleWrapper from "./ModeTogglerWrapper";
-import LogoSwitcher from "./LogoSwitcher";
-import Link from "next/link";
 
-export default async function navbar() {
+export default async function Navbar() {
   const session = await getServerSession(authOptions);
 
   function getDisplayName(email: string | null | undefined): string {
@@ -28,96 +22,143 @@ export default async function navbar() {
     const namePart = email.split("@")[0].trim();
     const nameSegments = namePart.split(/[._-]/);
     return nameSegments
-      .map(
-        (segment) =>
-          segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase()
-      )
+      .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
       .join(" ");
   }
 
   const displayName = getDisplayName(session?.user?.email);
 
   return (
-    <header className="py-4 bg-white dark:bg-gray-900 shadow">
-      <Navbar
-        fluid
-        rounded
-        className="mx-auto max-w-6xl px-6"
-        aria-label="Main navigation"
-      >
-        {/* Left: Logo + Toggle */}
-        <div className="flex items-center gap-4">
-          <LogoSwitcher />
-          <NavbarToggle />
+    <div className="navbar bg-white dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm px-4">
+      {/* Left: Logo + Mobile Menu */}
+      <div className="navbar-start">
+        <div className="dropdown">
+          <div tabIndex={0} role="button" className="btn btn-ghost lg:hidden">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h8m-8 6h16" />
+            </svg>
+          </div>
+          <ul
+            tabIndex={0}
+            className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-white dark:bg-gray-800 rounded-box w-52 text-gray-900 dark:text-white"
+          >
+            <li>
+              <Link href="/" className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400">
+                <Home size={16} /> Home
+              </Link>
+            </li>
+            <li>
+              <Link href="/articles" className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400">
+                <FileTextIcon size={16} /> Articles
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="https://helpdesk.mawaridhi.com/support/home"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <HeadsetIcon size={16} /> Help Desk
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="https://mawaridhi.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <GlobeIcon size={16} /> Visit Mawaridhi
+              </Link>
+            </li>
+          </ul>
         </div>
+        <LogoSwitcher />
+      </div>
 
-        {/* Center: Nav Links */}
-        <NavbarCollapse>
-          <div className="flex flex-col md:flex-row gap-4 md:gap-6 items-start md:items-center text-md font-medium text-gray-700 dark:text-gray-200">
-            <NavbarLink href="/" title="Home" className="flex items-center gap-2">
-              <Home className="w-5 h-5 md:hidden" />
-              <span>Home</span>
-            </NavbarLink>
-
-            <NavbarLink href="/articles" title="All Articles" className="flex items-center gap-2">
-              <FileTextIcon className="w-5 h-5 md:hidden" />
-              <span>Articles</span>
-            </NavbarLink>
-
-            <NavbarLink href="https://helpdesk.mawaridhi.com/support/home"  target="_blank"
-            rel="noopener noreferrer" title="Visit IT-Help Desk" className="flex items-center gap-2">
-              <HeadsetIcon className="w-5 h-5 md:hidden" />
-              <span>Help Desk</span>
-            </NavbarLink>
-
-            <NavbarLink
+      {/* Center: Nav (desktop only) */}
+      <div className="navbar-center hidden lg:flex">
+        <ul className="menu menu-horizontal px-1 font-medium text-gray-700 dark:text-gray-200">
+          <li>
+            <Link href="/" className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400">
+              <Home size={16} /> Home
+            </Link>
+          </li>
+          <li>
+            <Link href="/articles" className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400">
+              <FileTextIcon size={16} /> Articles
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="https://helpdesk.mawaridhi.com/support/home"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400"
+            >
+              <HeadsetIcon size={16} /> Help Desk
+            </Link>
+          </li>
+          <li>
+            <Link
               href="https://mawaridhi.com"
               target="_blank"
-              title="Visit mawaridhi.com"
-              className="flex items-center gap-2"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 hover:text-blue-600 dark:hover:text-blue-400"
             >
-              <GlobeIcon className="w-5 h-5 md:hidden" />
-              <span>Visit Mawaridhi</span>
-            </NavbarLink>
-          </div>
-        </NavbarCollapse>
-
-        {/* Right: Theme Toggle + Auth */}
-        <div className="flex items-center gap-4 ">
-          <ModeToggleWrapper />
-          {session?.user ? (
-            <details className="relative dropdown">
-              <summary className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-md cursor-pointer appearance-none list-none [&::-webkit-details-marker]:hidden">
-                Welcome, {displayName}
-                <ChevronDown size={16} />
-              </summary>
-              <ul className="absolute right-0 mt-2 p-2 shadow rounded-md z-50 w-44 bg-white dark:bg-gray-800 text-sm text-black dark:text-white">
-                <li>
-                  <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 rounded-md text-left">
-                    <LogOut size={16} />
-                    <LogoutButton />
-                  </div>
-                </li>
-                <li>
-                  <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 px-2 py-2 rounded-md text-left">
-                    <UserCog size={16} />
-                    <Link href="/admin" className="w-full">
-                      Admin Dashboard
-                    </Link>
-                  </div>
-                </li>
-              </ul>
-            </details>
-          ) : (
-            <Link
-              href="/login"
-              className="px-4 py-2 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition"
-            >
-              Login
+              <GlobeIcon size={16} /> Visit Mawaridhi
             </Link>
-          )}
-        </div>
-      </Navbar>
-    </header>
+          </li>
+        </ul>
+      </div>
+
+      {/* Right: Theme toggle + User menu */}
+      <div className="navbar-end gap-2">
+        <ModeToggleWrapper />
+
+        {session?.user ? (
+          <div className="dropdown dropdown-end">
+            <div
+              tabIndex={0}
+              role="button"
+              className="btn bg-blue-800 hover:bg-blue-900 text-white gap-2"
+            >
+              Welcome, {displayName}
+              <ChevronDown size={16} />
+            </div>
+            <ul
+              tabIndex={0}
+              className="dropdown-content z-[1] menu p-2 shadow bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-box w-56"
+            >
+              <li>
+                <Link href="/admin" className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-2 py-1">
+                  <UserCog size={16} /> Admin Dashboard
+                </Link>
+              </li>
+              <li>
+                <div className="flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md px-2 py-1">
+                  <LogOut size={16} />
+                  <LogoutButton />
+                </div>
+              </li>
+            </ul>
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            className="btn bg-blue-800 hover:bg-blue-900 text-white"
+          >
+            Login
+          </Link>
+        )}
+      </div>
+    </div>
   );
 }

@@ -36,7 +36,7 @@ const FaqAccordion = () => {
         <AccordionTrigger>What should I do if I can&apos;t find a solution to my problem?</AccordionTrigger>
         <AccordionContent>
           If you can&apos;t find the answer you&apos;re looking for, you can{" "}
-          <a href="/help-desk" className="text-blue-600 underline">
+          <a href="https://helpdesk.mawaridhi.com/support/home" className="text-blue-600 underline">
             visit the IT Help Desk
           </a>{" "}
           to create a support ticket and get personalized assistance.

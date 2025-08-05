@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Boxes } from "@/components/ui/background-boxes";
+import Boxes from "@/components/ui/background-boxes"; // if using default
 import SearchBar from "@/components/SearchBar";
 import LogoSwitcher from "./LogoSwitcher";
 
