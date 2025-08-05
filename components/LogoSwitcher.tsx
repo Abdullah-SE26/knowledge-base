@@ -9,14 +9,19 @@ export default function LogoSwitcher() {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
+  const lightLogo = "/logoForLight.png";
+  const darkLogo = "/logoForDark.svg";
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const logoSrc =
-    mounted && resolvedTheme === "dark"
-      ? "/logoForDark.svg"
-      : "/logoForLight.png";
+  // Only switch logo after theme is resolved on the client
+  const logoSrc = !mounted
+    ? lightLogo // fallback
+    : resolvedTheme === "dark"
+    ? darkLogo
+    : lightLogo;
 
   return (
     <Link href="/">

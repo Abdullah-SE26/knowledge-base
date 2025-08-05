@@ -55,7 +55,7 @@
     "framer-motion": "^12.23.11",
     "fs-extra": "^11.3.0",
     "jsonwebtoken": "^9.0.2",
-    "lucide-react": "^0.525.0",
+    "lucide-react": "^0.536.0",
     "mongodb": "^6.17.0",
     "mongoose": "^8.16.4",
     "next": "^15.4.5",
