@@ -1,8 +1,7 @@
 @import "tailwindcss";
+@plugin "flowbite-react/plugin/tailwindcss";
+@source "../.flowbite-react/class-list.json";
 @import "tw-animate-css";
-
-@import "@uploadthing/react/styles.css";
-@source "../node_modules/@uploadthing/react/dist"; /** <-- depends on your project structure */
 
 @custom-variant dark (&:is(.dark *));
 
@@ -85,6 +84,10 @@
 
   --radius: 0.625rem;
 
+  --background: oklch(1 0 0);
+
+  --foreground: oklch(0.145 0 0);
+
   --card: oklch(1 0 0);
 
   --card-foreground: oklch(0.145 0 0);
@@ -142,10 +145,6 @@
   --sidebar-border: oklch(0.922 0 0);
 
   --sidebar-ring: oklch(0.708 0 0);
-
-  --background: oklch(1 0 0);
-
-  --foreground: oklch(0.145 0 0);
 }
 
 .dark {
@@ -221,12 +220,3 @@
     @apply bg-background text-foreground;
   }
 }
-
-
-.ProseMirror {
-  outline: none;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  min-height: 200px;
-}
-
