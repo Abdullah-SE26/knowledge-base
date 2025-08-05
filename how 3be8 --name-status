@@ -1,0 +1,96 @@
+[33m4cecb1a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mfeat/admin[m[33m, [m[1;31morigin/feat/admin[m[33m)[m debugging rendering issues
+[33mdc7bffd[m Merge branch 'feat/admin' of https://github.com/Abdullah-SE26/knowledge-base into feat/admin
+[33mbcfa032[m debug: docx not displaying issues
+[33m1c57212[m debugging
+[33m21dbc72[m debug module errors
+[33m8155f18[m fixing run time issues
+[33mb0e4f3f[m adding various attchments support
+[33m3d12d87[m Merge branch 'dev' into feat/admin
+[33ma644e40[m[33m ([m[1;31morigin/dev[m[33m)[m fix: article/slug link issue
+[33mdf0fdc5[m Merge branch 'dev' into feat/admin
+[33m0d4ac50[m merging with dev
+[33m5bf49d6[m[33m ([m[1;32mdev[m[33m)[m fix: vercel deployment issues
+[33m5bdb4c0[m fix: dependencies issues
+[33m5800935[m fix bg boxes issue
+[33ma837d81[m bundle analyzer
+[33m89b0044[m installed packages
+[33mdede723[m Merge branch 'feat/admin' into dev
+[33m7aff920[m admin changes
+[33md16f4cc[m fix attachments issue
+[33mfedbdd6[m fix:  link pattern
+[33mdadee03[m debug: links not sent
+[33md299937[m attachments ui improvement
+[33m2cf5f66[m fix and improved the attachments issues.
+[33m9c3decf[m deleting unnecessary images
+[33mb934582[m NOTES
+[33m36b4b1d[m adding attchments to articles
+[33mbbb9ad1[m fix tags not displaying issue
+[33mdce0110[m ArticleModal improvements and bug fixing
+[33md91d5b7[m fix: form not submitting issue
+[33mf2377f2[m fix: content not showing on update issue.
+[33m436aa31[m added editors for the ArticleModal
+[33me092f0c[m admin dashboard implemtation
+[33m5b09aa8[m admin dashboard files
+[33m053bc66[m added editor client
+[33m1446f01[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mstaging[m[33m, [m[1;32mmain[m[33m)[m Merge pull request #11 from Abdullah-SE26/cursor/optimize-code-for-performance-and-load-times-3be8
+[33mf59c210[m Optimize performance with bundle analysis, lazy loading, and monitoring
+[33m0ce09b3[m added editor for articles
+[33m226d170[m improving external links
+[33me1963b6[m improved ui, logics and external links.
+[33m027cba2[m added sample articles to test
+[33m0307270[m middleware implementation
+[33mf894ebc[m fix: layout design and form improvements
+[33mf5146be[m merging feat/Footer with dev
+[33mf91126b[m feat: added a footer section
+[33m52f954e[m authentication improvements
+[33m7c5fab6[m added accordion to home page
+[33m287e094[m improved navbar responsiveness on smaller screens
+[33m7dc7bff[m fix: middleware location
+[33m1085516[m fix: navbar responsiveness on mobile
+[33mcd1e6f8[m navbar UIi improvement
+[33mded1652[m improved UI of login form
+[33m264567b[m middleware initiation
+[33m0abfc32[m made changes to the searching and filtering of the articles.
+[33md781cd1[m Merge branch 'staging'
+[33m9d42767[m added attachments featur to the articles and a ui to display them.
+[33m8355316[m fix: upvotes/downvotes not registering improved the ui design aswell.
+[33meb22501[m feat: Article sectiion and UI
+[33m4a210b7[m class json modified
+[33m7970043[m file
+[33mafe05a5[m Merge branch 'feat/HeroSection' into dev
+[33mf86864f[m feat: add HeroSection with improved UI and animations
+[33m27b532a[m package json update
+[33m6c7c084[m packetjson update
+[33m6092d4d[m Merge branch 'restore-0609cde'
+[33m6b21b4d[m commit
+[33mf880a68[m final touches for pages
+[33mc624514[m Merge pull request #8 from Abdullah-SE26/staging
+[33m98b8b6f[m Merge pull request #7 from Abdullah-SE26/dev
+[33mf27b654[m Merge pull request #6 from Abdullah-SE26/feat/navbar
+[33m0609cde[m[33m ([m[1;31morigin/feat/navbar[m[33m, [m[1;32mfeat/navbar[m[33m)[m feat(navbar) : implement responsive, theme-aware navbar with auth and logo switcher
+[33mbdb02a7[m Merge pull request #5 from Abdullah-SE26/staging
+[33mebec051[m adding darkmode
+[33md995cb1[m fix: issue with redirection
+[33m18469dc[m fix: domain issue
+[33me5102e5[m fix: image not being displayed issue
+[33m1de507c[m fix: logo not displaying in the magic link
+[33ma4cd652[m fix: domain issue
+[33m08569e0[m customisation of email messages for magic link
+[33m8b03b1c[m Merge pull request #4 from Abdullah-SE26/staging
+[33mc793466[m Merge pull request #3 from Abdullah-SE26/dev
+[33m5beaa7d[m Merge branch 'dev' into staging
+[33m4c4f479[m ignoreDuringBuildErrors
+[33m548b61e[m "navbar test"
+[33m736f945[m debug: vercel not importing navbar issue
+[33m7b5b4c7[m restructuring of folders
+[33m3e1bb70[m fix:  vercel importing issues
+[33m9fad0e4[m re-organisination of folders
+[33ma640af8[m improved  login form ui
+[33m31dfe8c[m Merge pull request #2 from Abdullah-SE26/dev
+[33m5745187[m improved  login form ui
+[33m7eef056[m Merge pull request #1 from Abdullah-SE26/feat/auth
+[33m259b2c0[m[33m ([m[1;31morigin/feat/auth[m[33m, [m[1;32mfeat/auth[m[33m)[m Complete email auth flow with session checks and redirects
+[33m307594c[m Trigger deploy for dev
+[33md6d24ae[m Trigger deploy for staging
+[33m6715a4c[m Trigger deploy for dev
+[33m566e5a9[m Initial commit from Create Next App
