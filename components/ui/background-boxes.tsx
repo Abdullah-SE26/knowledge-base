@@ -1,10 +1,13 @@
-import React, { Suspense, useMemo } from "react";
-import { motion } from "framer-motion"; // ✅ correct
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-// No need for dynamic import for motion.div
+interface BoxesProps {
+  className?: string;
+  [key: string]: any; // rest props
+}
 
-const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
+const Boxes: React.FC<BoxesProps> = ({ className, ...rest }) => {
   const dimensions = useMemo(() => ({
     rows: new Array(75).fill(1),
     cols: new Array(50).fill(1),
@@ -23,12 +26,10 @@ const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
     "#00008B",
     "#000047",
     "#00001A",
-  ];
-  const getRandomColor = () => {
-  ];
+  ], []);
+
   const getRandomColor = () => {
     return colors[Math.floor(Math.random() * colors.length)];
-  };
   };
 
   return (
@@ -42,31 +43,25 @@ const BoxesCoreComponent = ({ className, ...rest }: { className?: string }) => {
       )}
       {...rest}
     >
-      <Suspense fallback={<div className="w-full h-full bg-gradient-to-br from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800" />}>
-        {dimensions.rows.map((_, i) => (
-          <motion.div
-            key={`row${i}`}
-            className="relative h-8 w-16 border-l border-slate-200 dark:border-slate-800"
-          >
-            {dimensions.cols.map((_, j) => (
-              <motion.div
-                whileHover={{
-                  backgroundColor: `${getRandomColor()}`,
-                  transition: { duration: 0 },
-                }}
-                animate={{
-                  transition: { duration: 2 },
-                }}
-                key={`col${j}`}
-                className="relative h-8 w-16 border-t border-r border-slate-200 dark:border-slate-800"
-              />
-            ))}
-          </motion.div>
-        ))}
-      </Suspense>
+      {dimensions.rows.map((_, i) => (
+        <motion.div
+          key={`row${i}`}
+          className="relative h-8 w-16 border-l border-slate-200 dark:border-slate-800"
+        >
+          {dimensions.cols.map((_, j) => (
+            <motion.div
+              whileHover={{
+                backgroundColor: getRandomColor(),
+                transition: { duration: 0 },
+              }}
+              key={`col${j}`}
+              className="relative h-8 w-16 border-t border-r border-slate-200 dark:border-slate-800"
+            />
+          ))}
+        </motion.div>
+      ))}
     </div>
   );
 };
 
-export const Boxes = React.memo(BoxesCore);
-export const Boxes = React.memo(BoxesCore);
+export default React.memo(Boxes);
