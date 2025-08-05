@@ -2,6 +2,7 @@
 
 import React, { useEffect, useId, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
+import MarkdownEditor from "./MarkdownEditor";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Tags from "@yaireo/tagify/dist/react.tagify";
 import "@yaireo/tagify/dist/tagify.css";
-import CustomEditor from "./CustomEditor";
 import { v4 as uuidv4 } from "uuid";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import toast from "react-hot-toast";
@@ -196,13 +196,16 @@ export default function ArticleModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-auto">
+      <DialogContent className="w-full max-w-6xl min-w-[1000px] max-h-[95vh] px-8 py-6 sm:px-10 sm:py-8">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Edit Article" : "Create New Article"}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+        <form
+          onSubmit={handleSubmit(onFormSubmit)}
+          className="space-y-6 overflow-y-auto max-h-[75vh] pr-2"
+        >
           {/* Title */}
           <div>
             <Label htmlFor={`${id}-title`}>Title *</Label>
@@ -268,17 +271,23 @@ export default function ArticleModal({
 
           {/* Content */}
           <div>
-            <Label htmlFor={`${id}-content`}>Content *</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor={`${id}-content`}>Content *</Label>
+              <a
+                href="https://www.markdownguide.org/cheat-sheet/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 underline hover:text-blue-800"
+              >
+                Markdown Guide
+              </a>
+            </div>
             <Controller
               name="content"
               control={control}
               rules={{ required: "Content is required" }}
               render={({ field }) => (
-                <CustomEditor
-                  value={field.value}
-                  onChange={field.onChange}
-                  onSave={() => handleSubmit(onFormSubmit)()}
-                />
+                <MarkdownEditor value={field.value} onChange={field.onChange} />
               )}
             />
             {errors.content && (
@@ -338,7 +347,7 @@ export default function ArticleModal({
                         <FileText className="w-5 h-5 text-red-500" />
                       ) : att.type === "docx" ? (
                         <FileText className="w-5 h-5 text-blue-600" />
-                      ) : att.type === "ppt" || att.type ==="pptx" ? (
+                      ) : att.type === "ppt" || att.type === "pptx" ? (
                         <FilePieChart className="w-5 h-5 text-orange-500" />
                       ) : att.type === "xlsx" ? (
                         <FileSpreadsheet className="w-5 h-5 text-green-600" />

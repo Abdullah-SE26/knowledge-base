@@ -1,6 +1,8 @@
 import type { Config } from "tailwindcss";
 import flowbitePlugin from "flowbite/plugin";
-import daisyui from "daisyui"; // 👈 Add this
+import daisyui from "daisyui"; 
+
+
 
 const config: Config = {
   content: [

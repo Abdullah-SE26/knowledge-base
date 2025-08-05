@@ -87,6 +87,7 @@ export interface ArticleSerialized {
   tags?: string[];
   createdAt?: string;
   updatedAt?: string;
+  createdAtFormatted?: string;
   upvotesCount: number;    // add this
   downvotesCount: number;  // add this
 }

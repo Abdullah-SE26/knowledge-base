@@ -16,15 +16,11 @@ const ArticleSection: React.FC<ArticleSectionProps> = ({ articles }) => {
         // Make sure _id is string
         const id = typeof article._id === "string" ? article._id : String(article._id);
 
-        // Format createdAt date safely
+        // Parse createdAt date for dateTime attribute (can be null)
         const createdAtDate = article.createdAt ? new Date(article.createdAt) : null;
-        const createdAtFormatted = createdAtDate
-          ? createdAtDate.toLocaleDateString(undefined, {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })
-          : "Unknown date";
+
+        // Use preformatted date string passed from server (must be present)
+        const createdAtFormatted = article.createdAtFormatted ?? "Unknown date";
 
         // Default tags to empty array
         const tags = article.tags ?? [];
