@@ -5,11 +5,8 @@
   "scripts": {
     "dev": "next dev ",
     "build": "next build",
-    "build:analyze": "ANALYZE=true npm run build",
     "start": "next start",
-    "lint": "next lint",
-    "perf:audit": "npm run build && npx lighthouse http://localhost:3000 --output html --output-path ./lighthouse-report.html",
-    "perf:bundle": "npm run build:analyze"
+    "lint": "next lint"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",

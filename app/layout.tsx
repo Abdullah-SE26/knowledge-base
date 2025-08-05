@@ -5,7 +5,6 @@ import { Providers } from "./providers";
 import ThemeProviderWrapper from "@/components/ThemeProviderWrapper";
 import Footer from "@/components/Footer";
 
-
 export const metadata: Metadata = {
   title: "Mawaridhi-Knowledge Base",
   description: "Internal Knowledge Base for Mawaridhi",
