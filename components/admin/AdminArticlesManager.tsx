@@ -12,12 +12,23 @@ import {
   FileText,
   Image,
   FilePlus,
+  FilePieChart,
+  FileSpreadsheet,
+  FileVideo,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
-type AttachmentType = "pdf" | "image" | "form" | "docx" | "ppt";
+type AttachmentType =
+  | "pdf"
+  | "image"
+  | "form"
+  | "docx"
+  | "ppt"
+  | "pptx"
+  | "xlsx"
+  | "video";
 
 interface Attachment {
   type: AttachmentType;
@@ -78,7 +89,16 @@ export default function AdminArticlesManager() {
     setModalOpen(true);
   };
 
-  const validAttachmentTypes = new Set(["pdf", "image", "form", "docx", "ppt"]);
+  const validAttachmentTypes = new Set([
+    "pdf",
+    "image",
+    "form",
+    "docx",
+    "ppt",
+    "pptx",
+    "xlsx",
+    "video",
+  ]);
 
   const handleSave = useCallback(
     async (data: FormData) => {
@@ -134,7 +154,7 @@ export default function AdminArticlesManager() {
         if (content) sendData.append("content", content);
         tags.forEach((tag) => sendData.append("tags", tag));
 
-        // ✅ FIX: Only send serialized metadata, not files
+        // Send attachments metadata only
         if (attachments.length > 0) {
           sendData.append("attachments", JSON.stringify(attachments));
         }
@@ -186,7 +206,10 @@ export default function AdminArticlesManager() {
     image: <Image size={16} />,
     form: <FilePlus size={16} />,
     docx: <FileText size={16} />,
-    ppt: <FileText size={16} />,
+    ppt: <FilePieChart size={16} />,
+    pptx: <FilePieChart size={16} />,
+    xlsx: <FileSpreadsheet size={16} />,
+    video: <FileVideo size={16} />,
   };
 
   return (
@@ -220,7 +243,10 @@ export default function AdminArticlesManager() {
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {articles.map((a) => (
-                <tr key={a._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <tr
+                  key={a._id}
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
                   <td className="px-4 py-2 max-w-xs break-words">
                     <Link
                       href={`/articles/${a.slug}`}
@@ -247,42 +273,51 @@ export default function AdminArticlesManager() {
                   <td className="px-4 py-2">
                     {a.attachments && a.attachments.length > 0 ? (
                       <div className="flex flex-wrap gap-3">
-                        {(["image", "pdf", "form", "docx", "ppt"] as AttachmentType[]).map(
-                          (type) => {
-                            const count = a.attachments?.filter(
-                              (att) => att.type === type
-                            ).length;
-                            if (!count) return null;
-                            return (
-                              <TooltipPrimitive.Provider key={type}>
-                                <TooltipPrimitive.Root>
-                                  <TooltipPrimitive.Trigger asChild>
-                                    <div
-                                      className="flex items-center gap-1 cursor-default select-none rounded bg-gray-100 px-2 py-1 text-sm text-gray-700 hover:bg-gray-200"
-                                      aria-label={`${count} ${type}${
-                                        count > 1 ? "s" : ""
-                                      }`}
-                                    >
-                                      {attachmentIconMap[type]}
-                                      <span>{count}</span>
-                                    </div>
-                                  </TooltipPrimitive.Trigger>
-                                  <TooltipPrimitive.Portal>
-                                    <TooltipPrimitive.Content
-                                      side="top"
-                                      align="center"
-                                      sideOffset={5}
-                                      className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
-                                    >
-                                      {`${count} ${type}${count > 1 ? "s" : ""}`}
-                                      <TooltipPrimitive.Arrow className="fill-gray-800" />
-                                    </TooltipPrimitive.Content>
-                                  </TooltipPrimitive.Portal>
-                                </TooltipPrimitive.Root>
-                              </TooltipPrimitive.Provider>
-                            );
-                          }
-                        )}
+                        {(
+                          [
+                            "image",
+                            "pdf",
+                            "form",
+                            "docx",
+                            "ppt",
+                            "pptx",
+                            "xlsx",
+                            "video",
+                          ] as AttachmentType[]
+                        ).map((type) => {
+                          const count = a.attachments?.filter(
+                            (att) => att.type === type
+                          ).length;
+                          if (!count) return null;
+                          return (
+                            <TooltipPrimitive.Provider key={type}>
+                              <TooltipPrimitive.Root>
+                                <TooltipPrimitive.Trigger asChild>
+                                  <div
+                                    className="flex items-center gap-1 cursor-default select-none rounded bg-gray-100 px-2 py-1 text-sm text-gray-700 hover:bg-gray-200"
+                                    aria-label={`${count} ${type}${
+                                      count > 1 ? "s" : ""
+                                    }`}
+                                  >
+                                    {attachmentIconMap[type]}
+                                    <span>{count}</span>
+                                  </div>
+                                </TooltipPrimitive.Trigger>
+                                <TooltipPrimitive.Portal>
+                                  <TooltipPrimitive.Content
+                                    side="top"
+                                    align="center"
+                                    sideOffset={5}
+                                    className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
+                                  >
+                                    {`${count} ${type}${count > 1 ? "s" : ""}`}
+                                    <TooltipPrimitive.Arrow className="fill-gray-800" />
+                                  </TooltipPrimitive.Content>
+                                </TooltipPrimitive.Portal>
+                              </TooltipPrimitive.Root>
+                            </TooltipPrimitive.Provider>
+                          );
+                        })}
                       </div>
                     ) : (
                       <span className="text-gray-400">None</span>

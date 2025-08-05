@@ -3,7 +3,17 @@ import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
 
-type AttachmentType = "pdf" | "image" | "form" | "docx" | "ppt" | "pptx" | "jpg" | "png";
+type AttachmentType =
+  | "pdf"
+  | "image"
+  | "form"
+  | "docx"
+  | "ppt"
+  | "pptx"
+  | "xlsx"
+  | "video"
+  | "jpg"
+  | "png";
 
 interface Attachment {
   type: AttachmentType;
@@ -13,7 +23,16 @@ interface Attachment {
 }
 
 const VALID_ATTACHMENT_TYPES: AttachmentType[] = [
-  "pdf", "image", "form", "docx", "ppt", "pptx", "jpg", "png",
+  "pdf",
+  "image",
+  "form",
+  "docx",
+  "ppt",
+  "pptx",
+  "xlsx",
+  "video",
+  "jpg",
+  "png",
 ];
 
 function normalizeTags(input: unknown): string[] {
@@ -75,9 +94,17 @@ export async function PUT(
           attachments = parsed
             .map((att) => {
               if (!att?.url || !att?.name) return null;
-              const type = VALID_ATTACHMENT_TYPES.includes(att.type)
-                ? att.type
-                : "form";
+
+              let type = att.type;
+
+              // Normalize extensions to general types
+              if (type === "jpg" || type === "png") type = "image";
+              if (type === "mp4" || type === "webm") type = "video";
+
+              if (!VALID_ATTACHMENT_TYPES.includes(type)) {
+                type = "form";
+              }
+
               return {
                 type,
                 url: att.url,

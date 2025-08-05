@@ -4,59 +4,39 @@ import mongoose, { Schema, Document } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 
 export interface IAttachment {
-  customId?: string;
-  type: "pdf" | "image" | "form" | "docx" | "ppt";
+  // customId is usually frontend-only, omit from backend unless you want to store it
+  type: "pdf" | "image" | "form" | "docx" | "ppt" | "pptx" | "xlsx" | "video";
   url: string;
   name?: string;
-}
-
-export interface ArticleSerialized {
-  _id: string;
-  slug: string;
-  title: string;
-  subject: string;
-  content: string;
-  tags: string[];
-  attachments: IAttachment[];
-  createdAt: string;
-  createdAtFormatted: string;
-  updatedAt: string;
-  updatedAtFormatted: string;
-  upvotesCount: number;
-  downvotesCount: number;
+  public_id?: string;
 }
 
 export interface IArticle extends Document {
   title: string;
   content: string;
   slug: string;
-  subject: string;
+  subject?: string;
   attachments?: IAttachment[];
   upvotes?: string[];
   downvotes?: string[];
+  tags?: string[];
   createdAt?: Date;
   updatedAt?: Date;
-  tags?: string[];
 }
 
-const AttachmentSchema = new Schema<IAttachment & { customId: string }>(
+const AttachmentSchema = new Schema<IAttachment>(
   {
-    customId: {
-      type: String,
-      default: uuidv4,
-    },
     type: {
       type: String,
-      enum: ["pdf", "image", "form", "docx", "ppt", "pptx", "jpg", "png"],
+      enum: ["pdf", "image", "form", "docx", "ppt", "pptx", "xlsx", "video"],
       required: true,
     },
     url: {
       type: String,
       required: true,
       validate: {
-        validator: function (v: string): boolean {
+        validator: function (v: string) {
           try {
-            // Accept any well-formed URL (Cloudinary etc.)
             new URL(v);
             return true;
           } catch {
@@ -66,7 +46,8 @@ const AttachmentSchema = new Schema<IAttachment & { customId: string }>(
         message: (props: { value: string }) => `${props.value} is not a valid URL!`,
       },
     },
-    name: { type: String }, // Optional
+    name: { type: String },
+    public_id: { type: String }, // optional Cloudinary or other public id
   },
   { _id: false }
 );
@@ -78,8 +59,8 @@ const ArticleSchema = new Schema<IArticle>(
     slug: { type: String, required: true, unique: true },
     subject: { type: String },
     attachments: { type: [AttachmentSchema], default: [] },
-    upvotes: [String],
-    downvotes: [String],
+    upvotes: [{ type: String }],
+    downvotes: [{ type: String }],
     tags: [{ type: String }],
   },
   { timestamps: true }

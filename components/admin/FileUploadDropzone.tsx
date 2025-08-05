@@ -21,7 +21,7 @@ export default function UploadSection() {
         }}
         appearance={{
           label: "Drop your file here or click to browse",
-          allowedContent: "PDFs, Docs, PPTs, Images (PNG, JPG)",
+          allowedContent: "PDFs, Docs, PPTs, Images (PNG, JPG), xlsx, mp4, webm",
           button: {
             backgroundColor: "#4f46e5",
             color: "white",

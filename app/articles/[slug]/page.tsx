@@ -101,35 +101,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     </a>
                   </>
                 )}
-
-                {attachment.type === "docx" && (
-                  <>
-                    <FileText className="w-5 h-5 text-blue-600" />
-                    <a
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline"
-                    >
-                      {attachment.name || "Download DOCX"}
-                    </a>
-                  </>
-                )}
-
-                {attachment.type === "link" && (
-                  <>
-                    <LinkIcon className="w-5 h-5 text-blue-600" />
-                    <a
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline"
-                    >
-                      {attachment.name || attachment.url}
-                    </a>
-                  </>
-                )}
-
+                
                 {attachment.type === "form" && (
                   <>
                     <FileSignature className="w-5 h-5 text-blue-600" />

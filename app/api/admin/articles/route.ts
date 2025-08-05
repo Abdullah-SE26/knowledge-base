@@ -3,13 +3,36 @@ import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
 
-type AttachmentType = "pdf" | "image" | "form" | "docx" | "ppt" | "pptx" | "jpg" | "png";
+type AttachmentType =
+  | "pdf"
+  | "image"
+  | "form"
+  | "docx"
+  | "ppt"
+  | "pptx"
+  | "xlsx"
+  | "video"
+  | "jpg"
+  | "png";
 
 interface Attachment {
   type: AttachmentType;
   url: string;
   name: string;
   public_id?: string; // optional, e.g., UploadThing fileKey or id
+}
+
+function normalizeAttachmentType(type: string): AttachmentType {
+  const lower = type.toLowerCase();
+  if (["jpg", "png"].includes(lower)) return "image";
+  if (["mp4", "webm"].includes(lower)) return "video";
+  if (lower === "xlsx") return "xlsx";
+  if (lower === "pptx") return "pptx";
+  if (lower === "ppt") return "ppt";
+  if (lower === "docx") return "docx";
+  if (lower === "pdf") return "pdf";
+  // Default fallback
+  return "form";
 }
 
 function normalizeTags(input: unknown): string[] {
@@ -42,7 +65,10 @@ function sanitizeAttachments(input: unknown): Attachment[] {
         return parsed
           .filter((att) => att && typeof att === "object")
           .map((att) => {
-            const type = (att.type && typeof att.type === "string") ? att.type as AttachmentType : "form";
+            const type =
+              att.type && typeof att.type === "string"
+                ? normalizeAttachmentType(att.type)
+                : "form";
             const url = att.url && typeof att.url === "string" ? att.url : "";
             const name = att.name && typeof att.name === "string" ? att.name : "";
             return { type, url, name, public_id: att.public_id };
@@ -57,7 +83,10 @@ function sanitizeAttachments(input: unknown): Attachment[] {
     return input
       .filter((att) => att && typeof att === "object")
       .map((att) => {
-        const type = (att.type && typeof att.type === "string") ? att.type as AttachmentType : "form";
+        const type =
+          att.type && typeof att.type === "string"
+            ? normalizeAttachmentType(att.type)
+            : "form";
         const url = att.url && typeof att.url === "string" ? att.url : "";
         const name = att.name && typeof att.name === "string" ? att.name : "";
         return { type, url, name, public_id: (att as any).public_id };
