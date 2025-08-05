@@ -1,4 +1,3 @@
-// app/articles/[slug]/page.tsx
 import connectMongoDB from "@/lib/mongodb";
 import Article, { IArticle } from "@/models/Article";
 import { notFound } from "next/navigation";
@@ -60,7 +59,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         Subject: {safeArticle.subject}
       </h2>
 
-      {/* 🛠️ CONTENT RENDERED AS HTML */}
+      {/* 🛠️ Render article content */}
       <article
         className="prose prose-lg mt-6 dark:prose-invert"
         dangerouslySetInnerHTML={{ __html: safeArticle.content }}
@@ -73,21 +72,6 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         )}
       </div>
 
-          {/* <div>
-         {article.tags?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {safeArticle.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="text-sm bg-blue-100 text-blue-800 rounded px-2 py-1"
-                  >
-                    {tag}
-                  </span>
-                  </div>
-                ))}
-              </div> */}
-            
-
       <div className="mt-8">
         <ArticleActionsClient
           articleId={article.slug}
@@ -97,7 +81,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
         />
       </div>
 
-      {/* Attachments Section */}
+      {/* 📎 Attachments Section */}
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-4">Attachments</h3>
         {Array.isArray(article.attachments) && article.attachments.length > 0 ? (
@@ -117,6 +101,21 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     </a>
                   </>
                 )}
+
+                {attachment.type === "docx" && (
+                  <>
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <a
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline"
+                    >
+                      {attachment.name || "Download DOCX"}
+                    </a>
+                  </>
+                )}
+
                 {attachment.type === "link" && (
                   <>
                     <LinkIcon className="w-5 h-5 text-blue-600" />
@@ -130,6 +129,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     </a>
                   </>
                 )}
+
                 {attachment.type === "form" && (
                   <>
                     <FileSignature className="w-5 h-5 text-blue-600" />
@@ -143,6 +143,7 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
                     </a>
                   </>
                 )}
+
                 {attachment.type === "image" && (
                   <>
                     <ImageIcon className="w-5 h-5 text-blue-600" />
