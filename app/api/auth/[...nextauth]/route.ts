@@ -2,7 +2,7 @@ import NextAuth, { NextAuthOptions } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "@/lib/clientPromise";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
 import { MongoClient } from "mongodb";
@@ -10,26 +10,24 @@ import { MongoClient } from "mongodb";
 // Dev override emails
 const devEmails = ["m.abdullahx21@gmail.com"];
 
-// Nodemailer setup
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_SERVER_HOST,
-  port: parseInt(process.env.EMAIL_SERVER_PORT || "587"),
-  auth: {
-    user: process.env.EMAIL_SERVER_USER,
-    pass: process.env.EMAIL_SERVER_PASSWORD,
-  },
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Fetch user role by email from users collection
+// Get user role by email from MongoDB
 async function getUserRoleByEmail(email: string): Promise<string | null> {
   const client: MongoClient = await clientPromise;
   const db = client.db();
-  const user = await db.collection("users").findOne({ email: email.toLowerCase() });
+  const user = await db
+    .collection("users")
+    .findOne({ email: email.toLowerCase() });
   return user?.role || null;
 }
 
-// Fetch allowedDomains and exceptionEmails from settings collection
-async function getAllowedSettings() {
+// Fetch allowed domains and exception emails
+async function getAllowedSettings(): Promise<{
+  allowedDomains: string[];
+  exceptionEmails: string[];
+}> {
   const client: MongoClient = await clientPromise;
   const db = client.db();
   const settings = await db.collection("settings").findOne({});
@@ -41,21 +39,12 @@ async function getAllowedSettings() {
 
 export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
-
   session: {
-    strategy: "jwt", // required for middleware token access
+    strategy: "jwt",
   },
 
   providers: [
     EmailProvider({
-      server: {
-        host: process.env.EMAIL_SERVER_HOST,
-        port: parseInt(process.env.EMAIL_SERVER_PORT || "587"),
-        auth: {
-          user: process.env.EMAIL_SERVER_USER,
-          pass: process.env.EMAIL_SERVER_PASSWORD,
-        },
-      },
       from: process.env.EMAIL_FROM,
       async sendVerificationRequest({ identifier, url, provider }) {
         const logoUrl = "https://mawaridhi-kb.vercel.app/logo.png";
@@ -76,12 +65,20 @@ export const authOptions: NextAuthOptions = {
           </div>
         `;
 
-        await transporter.sendMail({
-          to: identifier,
-          from: provider.from,
-          subject: "Your sign-in link for Mawaridhi",
-          html,
-        });
+        try {
+          const { error } = await resend.emails.send({
+            to: [identifier],
+            from: provider.from || "",
+            subject: "Your sign-in link for Mawaridhi",
+            html,
+          });
+
+          if (error) throw error;
+
+          console.log("✅ Verification email sent via Resend.");
+        } catch (err) {
+          console.error("❌ Failed to send verification email via Resend:", err);
+        }
       },
     }),
   ],
@@ -94,16 +91,16 @@ export const authOptions: NextAuthOptions = {
       const { allowedDomains, exceptionEmails } = await getAllowedSettings();
 
       // Allow if email ends with an allowed domain
-      if (allowedDomains.some((domain) => email.endsWith(`@${domain}`))) {
+      if (allowedDomains.some((domain: string) => email.endsWith(`@${domain}`))) {
         return true;
       }
 
-      // Allow if email is in exceptions
+      // Allow if email is in exception list
       if (exceptionEmails.includes(email)) {
         return true;
       }
 
-      // Allow if email is in dev emails
+      // Allow if email is in dev list
       if (devEmails.includes(email)) {
         return true;
       }
@@ -113,11 +110,9 @@ export const authOptions: NextAuthOptions = {
 
     async jwt({ token, user }) {
       if (user) {
-        // First sign in, user object available
         token.email = user.email;
         token.role = (user as any).role || "user";
       } else if (token.email) {
-        // Subsequent calls: get role from DB by email
         const role = await getUserRoleByEmail(token.email);
         token.role = role || "user";
       }

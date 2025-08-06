@@ -64,7 +64,11 @@ export default function LoginForm() {
 
     // Check if email domain is allowed OR email is in exceptions OR devEmails
     const domainAllowed = allowedDomains.some((d) => email.endsWith(`@${d}`));
-    if (!domainAllowed && !exceptions.includes(email) && !devEmails.includes(email)) {
+    if (
+      !domainAllowed &&
+      !exceptions.includes(email) &&
+      !devEmails.includes(email)
+    ) {
       setError("❌ Error! Invalid domain or email not allowed.");
       return;
     }
