@@ -15,6 +15,13 @@ export async function middleware(req: NextRequest) {
   const isAllowedDomain = email.endsWith(`@${allowedDomain}`);
   const isDev = devEmails.includes(email);
   const isAdmin = role === "admin";
+  const isSuperAdmin = role === "superadmin";
+
+  // Protect /super-admin — only superadmin can access
+  if (req.nextUrl.pathname.startsWith("/super-admin") && !isSuperAdmin) {
+    url.pathname = "/unauthorized"; // or your custom no-access page
+    return NextResponse.redirect(url);
+  }
 
   // Protect /admin - allow dev emails OR admins
   if (req.nextUrl.pathname.startsWith("/admin") && !(isDev || isAdmin)) {
@@ -37,5 +44,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/articles/:path*", "/article/:path*"],
+  matcher: ["/admin", "/articles/:path*", "/article/:path*", "/super-admin/:path*"],
 };

@@ -77,16 +77,10 @@ export const authOptions: NextAuthOptions = {
       return false;
     },
 
-    async jwt({ token, user }: { token: JWT; user?: any }) {
-      if (user?.email) {
+    async jwt({ token, user }) {
+      if (user) {
         token.email = user.email;
-
-        if (
-          user.email.endsWith(`@${allowedDomain}`) ||
-          devEmails.includes(user.email)
-        ) {
-          token.role = "admin";
-        }
+        token.role = (user as any).role || "user"; // Read role from DB
       }
       return token;
     },
