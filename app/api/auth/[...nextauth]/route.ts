@@ -43,6 +43,7 @@ async function getAllowedSettings() {
 
 export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
+  debug: true,
 
   session: {
     strategy: "jwt", // required for middleware token access
@@ -60,6 +61,21 @@ export const authOptions: NextAuthOptions = {
       },
       from: process.env.EMAIL_FROM,
       async sendVerificationRequest({ identifier, url, provider }) {
+        console.log("📩 Attempting to send magic link to:", identifier);
+        const email = identifier.toLowerCase();
+
+        const { allowedDomains, exceptionEmails } = await getAllowedSettings();
+
+        const isAllowed =
+          allowedDomains.some((domain) => email.endsWith(`@${domain}`)) ||
+          exceptionEmails.includes(email) ||
+          devEmails.includes(email);
+
+        if (!isAllowed) {
+          console.log("❌ Email not allowed, skipping send:", email);
+          return;
+        }
+
         const logoUrl = "https://mawaridhi-kb.vercel.app/logo.png";
 
         const html = `
@@ -124,6 +140,8 @@ export const authOptions: NextAuthOptions = {
         // First sign in, user object available
         token.email = user.email;
         token.role = (user as any).role || "user";
+        console.log("JWT callback triggered", { user, token });
+
       } else if (token.email) {
         // Subsequent calls: get role from DB by email
         const role = await getUserRoleByEmail(token.email);
@@ -142,8 +160,8 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
 
-    async redirect({ url, baseUrl }) {
-      return url.startsWith(baseUrl) ? "/" : baseUrl;
+    async redirect() {
+      return "/";
     },
   },
 
@@ -157,8 +175,6 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-
-
 
 // resend setup below
 // import NextAuth, { NextAuthOptions } from "next-auth";

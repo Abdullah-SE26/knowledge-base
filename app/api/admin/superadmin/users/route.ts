@@ -4,8 +4,10 @@ import User from "@/models/User";
 import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: Request) {
+  // Require at least admin (default)
   const session = await requireAdmin(req);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   await connectMongoDB();
 
@@ -13,13 +15,18 @@ export async function GET(req: Request) {
     const users = await User.find({}, "email role").lean();
     return NextResponse.json(users);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch users" },
+      { status: 500 }
+    );
   }
 }
 
 export async function PUT(req: Request) {
+  // Require superadmin explicitly for updating user roles
   const session = await requireAdmin(req, { requireSuperadmin: true });
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   await connectMongoDB();
 
@@ -27,7 +34,10 @@ export async function PUT(req: Request) {
     const { userId, newRole } = await req.json();
 
     if (!userId || !newRole) {
-      return NextResponse.json({ error: "Missing userId or newRole" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing userId or newRole" },
+        { status: 400 }
+      );
     }
 
     const allowedRoles = ["user", "admin", "superadmin"];
@@ -35,13 +45,20 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    const user = await User.findByIdAndUpdate(userId, { role: newRole }, { new: true });
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { role: newRole },
+      { new: true }
+    );
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     return NextResponse.json(user);
   } catch (error) {
-    return NextResponse.json({ error: "Failed to update user role" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update user role" },
+      { status: 500 }
+    );
   }
 }

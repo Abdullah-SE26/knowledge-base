@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
-import connectMongoDB from "@/lib/mongodb"; // Your MongoDB connection helper
-import Settings from "@/models/Settings"; // Your Settings mongoose model
-import { requireAdmin } from "@/lib/adminAuth"; // Middleware/auth helper to restrict access
+import connectMongoDB from "@/lib/mongodb";
+import Settings from "@/models/Settings";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: Request) {
   await connectMongoDB();
 
-  // Only allow superadmins or admins
+  // Allow admin or superadmin to fetch settings
   const session = await requireAdmin(req);
-  if (!session)
+  if (!session) 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const settings = await Settings.findOne({});
+    // Return settings or default empty arrays
     return NextResponse.json(
       settings || { allowedDomains: [], exceptionEmails: [] }
     );
@@ -27,19 +28,20 @@ export async function GET(req: Request) {
 export async function PUT(req: Request) {
   await connectMongoDB();
 
+  // Only superadmin allowed to update settings
   const session = await requireAdmin(req, { requireSuperadmin: true });
-  if (!session)
+  if (!session) 
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
-    const body = await req.json();
-    const { allowedDomains, exceptionEmails } = body;
+    const { allowedDomains, exceptionEmails } = await req.json();
 
+    // Validate input is arrays
     if (!Array.isArray(allowedDomains) || !Array.isArray(exceptionEmails)) {
       return NextResponse.json({ error: "Invalid input" }, { status: 400 });
     }
 
-    // Upsert settings document
+    // Update or create settings document
     const updatedSettings = await Settings.findOneAndUpdate(
       {},
       { allowedDomains, exceptionEmails },

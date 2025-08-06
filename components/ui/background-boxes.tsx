@@ -63,4 +63,3 @@ export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
 
 export default React.memo(BoxesCore); // correct component name
 
-

@@ -1,12 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import toast, { Toaster } from "react-hot-toast";
 
 interface User {
   id: string;
   email: string;
   role: string;
 }
+
+// Simple domain regex (doesn’t cover all cases but enough for typical use)
+const domainRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+// Simple email regex
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SuperAdminPage() {
   const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
@@ -32,7 +38,7 @@ export default function SuperAdminPage() {
         setAllowedDomains(data.allowedDomains || []);
         setExceptions(data.exceptionEmails || []);
       } catch (err) {
-        alert("Error loading settings");
+        toast.error("Error loading settings");
       } finally {
         setLoadingSettings(false);
       }
@@ -44,13 +50,15 @@ export default function SuperAdminPage() {
         const res = await fetch("/api/admin/superadmin/users");
         if (!res.ok) throw new Error("Failed to fetch users");
         const data = await res.json();
-        setUsers(data.map((u: any) => ({
-          id: u._id || u.id,
-          email: u.email,
-          role: u.role,
-        })));
+        setUsers(
+          data.map((u: any) => ({
+            id: u._id || u.id,
+            email: u.email,
+            role: u.role,
+          }))
+        );
       } catch (err) {
-        alert("Error loading users");
+        toast.error("Error loading users");
       } finally {
         setLoadingUsers(false);
       }
@@ -62,11 +70,23 @@ export default function SuperAdminPage() {
 
   // Add/remove domains
   function addDomain() {
-    const trimmed = newDomain.trim();
-    if (trimmed && !allowedDomains.includes(trimmed)) {
-      setAllowedDomains([...allowedDomains, trimmed]);
-      setNewDomain("");
+    const trimmed = newDomain.trim().toLowerCase();
+
+    if (!trimmed) {
+      toast.error("Domain cannot be empty");
+      return;
     }
+    if (!domainRegex.test(trimmed)) {
+      toast.error("Invalid domain format");
+      return;
+    }
+    if (allowedDomains.includes(trimmed)) {
+      toast.error("Domain already added");
+      return;
+    }
+
+    setAllowedDomains([...allowedDomains, trimmed]);
+    setNewDomain("");
   }
   function removeDomain(domain: string) {
     setAllowedDomains(allowedDomains.filter((d) => d !== domain));
@@ -74,11 +94,23 @@ export default function SuperAdminPage() {
 
   // Add/remove exceptions
   function addException() {
-    const trimmed = newException.trim();
-    if (trimmed && !exceptions.includes(trimmed)) {
-      setExceptions([...exceptions, trimmed]);
-      setNewException("");
+    const trimmed = newException.trim().toLowerCase();
+
+    if (!trimmed) {
+      toast.error("Email cannot be empty");
+      return;
     }
+    if (!emailRegex.test(trimmed)) {
+      toast.error("Invalid email format");
+      return;
+    }
+    if (exceptions.includes(trimmed)) {
+      toast.error("Email already added");
+      return;
+    }
+
+    setExceptions([...exceptions, trimmed]);
+    setNewException("");
   }
   function removeException(email: string) {
     setExceptions(exceptions.filter((e) => e !== email));
@@ -97,9 +129,9 @@ export default function SuperAdminPage() {
         }),
       });
       if (!res.ok) throw new Error("Failed to save settings");
-      alert("Settings saved successfully");
+      toast.success("Settings saved successfully");
     } catch (err) {
-      alert("Error saving settings");
+      toast.error("Error saving settings");
     } finally {
       setSavingSettings(false);
     }
@@ -107,6 +139,7 @@ export default function SuperAdminPage() {
 
   // Update user role optimistically and send update to backend
   async function changeUserRole(userId: string, newRole: string) {
+    const oldUsers = [...users];
     setUsers(users.map((user) => (user.id === userId ? { ...user, role: newRole } : user)));
 
     try {
@@ -116,14 +149,20 @@ export default function SuperAdminPage() {
         body: JSON.stringify({ userId, newRole }),
       });
       if (!res.ok) throw new Error("Failed to update user role");
+      toast.success("User role updated");
     } catch (err) {
-      alert("Error updating user role");
-      // Optionally reload users or revert UI change here
+      toast.error("Error updating user role");
+      // revert UI change on error
+      setUsers(oldUsers);
     }
   }
 
+  const isBusy = loadingSettings || savingSettings || loadingUsers;
+
   return (
     <div className="max-w-6xl mx-auto p-6">
+      <Toaster position="top-right" />
+
       <h1 className="text-3xl font-semibold mb-8 text-gray-900 dark:text-gray-100">
         Super Admin Panel
       </h1>
@@ -142,10 +181,12 @@ export default function SuperAdminPage() {
                 value={newDomain}
                 onChange={(e) => setNewDomain(e.target.value)}
                 className="flex-grow rounded border px-3 py-2 dark:bg-gray-800 dark:text-white"
+                disabled={isBusy}
               />
               <button
                 onClick={addDomain}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                disabled={isBusy}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50"
               >
                 Add
               </button>
@@ -159,6 +200,7 @@ export default function SuperAdminPage() {
                   <span>{domain}</span>
                   <button
                     onClick={() => removeDomain(domain)}
+                    disabled={isBusy}
                     className="text-red-600 hover:text-red-800"
                     aria-label={`Remove domain ${domain}`}
                   >
@@ -185,10 +227,12 @@ export default function SuperAdminPage() {
                 value={newException}
                 onChange={(e) => setNewException(e.target.value)}
                 className="flex-grow rounded border px-3 py-2 dark:bg-gray-800 dark:text-white"
+                disabled={isBusy}
               />
               <button
                 onClick={addException}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                disabled={isBusy}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50"
               >
                 Add
               </button>
@@ -202,6 +246,7 @@ export default function SuperAdminPage() {
                   <span>{email}</span>
                   <button
                     onClick={() => removeException(email)}
+                    disabled={isBusy}
                     className="text-red-600 hover:text-red-800"
                     aria-label={`Remove exception ${email}`}
                   >
@@ -218,7 +263,7 @@ export default function SuperAdminPage() {
       <div className="mb-12">
         <button
           onClick={saveSettings}
-          disabled={savingSettings}
+          disabled={isBusy}
           className="px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50"
         >
           {savingSettings ? "Saving..." : "Save Settings"}
@@ -250,6 +295,7 @@ export default function SuperAdminPage() {
                       value={role}
                       onChange={(e) => changeUserRole(id, e.target.value)}
                       className="rounded border px-2 py-1 dark:bg-gray-800 dark:text-white"
+                      disabled={isBusy}
                     >
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
