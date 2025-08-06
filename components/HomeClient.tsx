@@ -15,10 +15,14 @@ export default function HomeClient({ articles }: HomeClientProps) {
 
   const filteredArticles = articles.filter((article) => {
     const q = searchQuery.toLowerCase();
+
+    const subject = article.subject ?? ""; // fallback to empty string if undefined
+    const tags = article.tags ?? []; // fallback to empty array if undefined
+
     return (
       article.title.toLowerCase().includes(q) ||
-      article.subject.toLowerCase().includes(q) ||
-      article.tags.some((tag) => tag.toLowerCase().includes(q))
+      subject.toLowerCase().includes(q) ||
+      tags.some((tag) => tag.toLowerCase().includes(q))
     );
   });
 
@@ -35,7 +39,7 @@ export default function HomeClient({ articles }: HomeClientProps) {
         )}
       </div>
 
-      <FaqAccordion/>
+      <FaqAccordion />
     </>
   );
 }

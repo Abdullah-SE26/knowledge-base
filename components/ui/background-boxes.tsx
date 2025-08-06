@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
@@ -27,14 +27,13 @@ export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
 
   return (
     <div
-      style={{
-        transform: `translate(-40%,-60%) scale(0.675) rotate(0deg) translateZ(0)`,
-      }}
       className={cn(
         "absolute -top-1/4 left-1/4 z-0 flex h-full w-full -translate-x-1/2 -translate-y-1/2 p-4",
         className
       )}
-      {...rest}
+      style={{
+        transform: "translate(-40%,-60%) scale(0.675) rotate(0deg) translateZ(0)",
+      }}
     >
       {rows.map((_, i) => (
         <motion.div
@@ -62,4 +61,6 @@ export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
   );
 };
 
-export const Boxes = React.memo(BoxesCore);
+export default React.memo(BoxesCore); // correct component name
+
+

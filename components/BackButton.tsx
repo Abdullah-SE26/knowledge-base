@@ -14,7 +14,7 @@ const BackButton = () => {
 
         <button
             onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-white hover:bg-blue-900 mb-0 px-6 py-2 cursor-pointer border border-gray-300 rounded-md transition hover:border-black dark:text-white dark:border-white dark:hover:bg-blue-900"
+            className="flex items-center  text-gray-600 hover:text-white hover:bg-blue-900 mb-0 px-6 py-2 cursor-pointer border border-gray-300 rounded-md transition hover:border-black dark:text-white dark:border-white dark:hover:bg-blue-900"
             aria-label="Go back"
             title="Go Back to previous page"
             >

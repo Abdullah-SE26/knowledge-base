@@ -7,15 +7,17 @@ const devEmails = ["m.abdullahx21@gmail.com"];
 
 export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-
   const email = token?.email || "";
+  const role = token?.role || "";
+
   const url = req.nextUrl.clone();
 
   const isAllowedDomain = email.endsWith(`@${allowedDomain}`);
   const isDev = devEmails.includes(email);
+  const isAdmin = role === "admin";
 
-  // Protect /admin
-  if (req.nextUrl.pathname.startsWith("/admin") && !isDev) {
+  // Protect /admin - allow dev emails OR admins
+  if (req.nextUrl.pathname.startsWith("/admin") && !(isDev || isAdmin)) {
     url.pathname = "/unauthorized";
     return NextResponse.redirect(url);
   }
