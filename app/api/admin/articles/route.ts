@@ -255,7 +255,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
 
-    // No external file deletion needed here because UploadThing manages files
+   
 
     return NextResponse.json(
       { message: "Article deleted successfully" },
@@ -277,19 +277,57 @@ export async function GET(req: Request) {
   await connectMongoDB();
 
   try {
-    const articles = await Article.find({})
-      .select(
-        "title slug subject createdAt upvotes downvotes tags content attachments"
-      )
-      .sort({ createdAt: -1 })
+    const url = new URL(req.url);
+    const page = parseInt(url.searchParams.get("page") || "1", 10);
+    const limit = parseInt(url.searchParams.get("limit") || "10", 10);
+    const search = url.searchParams.get("search")?.trim() || "";
+    const sortParam = url.searchParams.get("sort") || "-createdAt";
+    const dateFrom = url.searchParams.get("dateFrom");
+    const dateTo = url.searchParams.get("dateTo");
+
+    // Build filter
+    const filter: Record<string, any> = {};
+
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { subject: { $regex: search, $options: "i" } },
+        { content: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (dateFrom || dateTo) {
+      filter.createdAt = {};
+      if (dateFrom) filter.createdAt.$gte = new Date(dateFrom);
+      if (dateTo) filter.createdAt.$lte = new Date(dateTo);
+    }
+
+    // Parse sort like "-title" or "createdAt"
+    let sort: Record<string, 1 | -1> = { createdAt: -1 }; // default
+    if (sortParam.startsWith("-")) {
+      sort = { [sortParam.slice(1)]: -1 };
+    } else {
+      sort = { [sortParam]: 1 };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const total = await Article.countDocuments(filter);
+    const articles = await Article.find(filter)
+      .select("title slug subject createdAt upvotes downvotes tags content attachments")
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
       .lean();
 
-    return NextResponse.json({ articles });
-  } catch (error) {
-    console.error("Failed to fetch articles:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch articles" },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      articles,
+      total,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error("Failed to fetch articles:", err);
+    return NextResponse.json({ error: "Failed to fetch articles" }, { status: 500 });
   }
 }

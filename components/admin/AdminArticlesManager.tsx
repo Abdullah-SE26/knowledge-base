@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, JSX } from "react";
+import React, { useEffect, useState, useCallback, useMemo, JSX } from "react";
 import ArticleModal from "./ArticleModal";
 import ConfirmationModal from "@/components/admin/ConfirmationModal";
 import {
@@ -19,6 +19,26 @@ import {
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import debounce from "lodash.debounce";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { formatISO } from "date-fns";
+import { PaginationWrapper } from "../ui/PaginationWrapper";
 
 type AttachmentType =
   | "pdf"
@@ -50,6 +70,13 @@ interface Article {
   attachments?: Attachment[];
 }
 
+interface ApiResponse {
+  articles: Article[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export default function AdminArticlesManager() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(false);
@@ -57,24 +84,70 @@ export default function AdminArticlesManager() {
   const [editingArticle, setEditingArticle] = useState<Article | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [totalItems, setTotalItems] = useState(0);
 
+  const [page, setPage] = useState(1);
+  const limit = 10;
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sort, setSort] = useState<
+    "createdAt" | "-createdAt" | "title" | "-title"
+  >("-createdAt");
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
+
+  // Reset to first page whenever filters/search change
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, sort, dateFrom, dateTo]);
+
+  const totalPages = Math.ceil(totalItems / limit);
+
+  // Define fetchArticles BEFORE using in debounce
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/articles");
-      if (!res.ok) throw new Error("Failed to fetch articles");
-      const data = await res.json();
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        sort,
+      });
+
+      if (searchTerm.trim()) params.append("search", searchTerm.trim());
+      if (dateFrom) params.append("dateFrom", formatISO(dateFrom));
+      if (dateTo) params.append("dateTo", formatISO(dateTo));
+
+      const res = await fetch(`/api/admin/articles?${params.toString()}`);
+      if (!res.ok) throw new Error("Fetch failed");
+
+      const data: ApiResponse = await res.json();
       setArticles(data.articles);
+      setTotalItems(data.total);
     } catch {
-      toast.error("Failed to fetch articles.");
+      toast.error("Failed to fetch articles");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, limit, sort, searchTerm, dateFrom, dateTo]);
 
+  // Debounce fetchArticles for searchTerm changes
+  const debouncedFetch = useMemo(() => debounce(fetchArticles, 400), [fetchArticles]);
+
+  // Fetch on page, sort, dateFrom, dateTo changes immediately
   useEffect(() => {
     fetchArticles();
-  }, [fetchArticles]);
+  }, [page, sort, dateFrom, dateTo, fetchArticles]);
+
+  // Debounced fetch on searchTerm changes only
+  useEffect(() => {
+    debouncedFetch();
+
+    return () => {
+      debouncedFetch.cancel();
+    };
+  }, [searchTerm, debouncedFetch]);
+
+  // Handlers and other functions remain exactly the same:
 
   const handleEdit = (id: string) => {
     const article = articles.find((a) => a._id === id);
@@ -104,79 +177,53 @@ export default function AdminArticlesManager() {
     async (data: FormData) => {
       if (saving) return;
       setSaving(true);
-
       const isEdit = !!editingArticle;
       const url = isEdit
-        ? `/api/admin/articles/${editingArticle!._id}`
+        ? `/api/admin/articles/${editingArticle._id}`
         : "/api/admin/articles";
       const method = isEdit ? "PUT" : "POST";
 
       try {
-        const title = data.get("title") as string | null;
-        const slug = data.get("slug") as string | null;
-        const subject = (data.get("subject") as string | null) || "";
-        const content = data.get("content") as string | null;
+        const title = data.get("title") as string;
+        const slug = data.get("slug") as string;
+        const subject = (data.get("subject") as string) || "";
+        const content = data.get("content") as string;
         const tags = data.getAll("tags") as string[];
-        const attachmentsJson = data.get("attachments") as string | null;
-
-        console.log("handleSave data:");
-        console.log({ title, slug, subject, content, tags, attachmentsJson });
+        const attachmentsJson = data.get("attachments") as string;
 
         let attachments: Attachment[] = [];
-        if (attachmentsJson) {
-          try {
-            const parsed = JSON.parse(attachmentsJson);
-            if (Array.isArray(parsed)) {
-              attachments = parsed.map((att) => {
-                let type = att.type;
-                if (!validAttachmentTypes.has(type)) {
-                  console.warn(
-                    `Invalid attachment type "${type}" replaced with "form"`
-                  );
-                  type = "form";
-                }
-                return {
-                  ...att,
-                  type,
-                };
-              });
-            }
-          } catch (err) {
-            console.warn("Failed to parse attachments JSON", err);
-          }
-        }
-        console.log("Parsed attachments:", attachments);
+        try {
+          const parsed = JSON.parse(attachmentsJson);
+          attachments = Array.isArray(parsed)
+            ? parsed.map((att: Attachment) => ({
+                ...att,
+                type: validAttachmentTypes.has(att.type) ? att.type : "form",
+              }))
+            : [];
+        } catch {}
 
         const sendData = new FormData();
-        if (title) sendData.append("title", title);
-        if (slug) sendData.append("slug", slug);
+        sendData.append("title", title);
+        sendData.append("slug", slug);
         sendData.append("subject", subject);
-        if (content) sendData.append("content", content);
+        sendData.append("content", content);
         tags.forEach((tag) => sendData.append("tags", tag));
-
-        // Send attachments metadata only
         if (attachments.length > 0) {
           sendData.append("attachments", JSON.stringify(attachments));
         }
 
-        const res = await fetch(url, {
-          method,
-          body: sendData,
-        });
-
+        const res = await fetch(url, { method, body: sendData });
         if (!res.ok) {
           const json = await res.json().catch(() => null);
-          console.error("API Error Response:", json);
           throw new Error(json?.error || res.statusText);
         }
 
+        toast.success(`Article ${isEdit ? "updated" : "created"} successfully`);
         setModalOpen(false);
         setEditingArticle(null);
         await fetchArticles();
-        toast.success(`Article ${isEdit ? "updated" : "created"} successfully!`);
       } catch (err: any) {
-        console.error("Save failed:", err);
-        toast.error(`Error saving article: ${err.message || err}`);
+        toast.error(`Error saving article: ${err.message}`);
       } finally {
         setSaving(false);
       }
@@ -191,11 +238,11 @@ export default function AdminArticlesManager() {
         const res = await fetch(`/api/admin/articles/${id}`, {
           method: "DELETE",
         });
-        if (!res.ok) throw new Error("Failed to delete article");
-        await fetchArticles();
-        toast.success("Article deleted.");
+        if (!res.ok) throw new Error("Failed");
+        toast.success("Deleted");
+        fetchArticles();
       } catch {
-        toast.error("Failed to delete article.");
+        toast.error("Delete failed");
       }
     },
     [fetchArticles]
@@ -217,15 +264,72 @@ export default function AdminArticlesManager() {
       <Toaster />
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Admin Articles</h1>
-        <button
-          onClick={handleCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded flex items-center gap-2"
-        >
-          <PlusCircle size={18} />
+        <Button onClick={handleCreate}>
+          <PlusCircle size={18} className="mr-2" />
           Create New
-        </button>
+        </Button>
       </header>
 
+      {/* Filters */}
+      <div className="grid md:grid-cols-4 sm:grid-cols-2 gap-4 mb-6">
+        <div className="md:col-span-1">
+          <Label>Search</Label>
+          <Input
+            placeholder="Search by title or subject"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div>
+          <Label>Sort</Label>
+          <Select value={sort} onValueChange={(value) => setSort(value as any)}>
+            <SelectTrigger>
+              <SelectValue placeholder="Sort" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="-createdAt">Newest</SelectItem>
+                <SelectItem value="createdAt">Oldest</SelectItem>
+                <SelectItem value="title">Title (A-Z)</SelectItem>
+                <SelectItem value="-title">Title (Z-A)</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex gap-2 mt-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full">
+                {dateFrom ? dateFrom.toDateString() : "From"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full">
+                {dateTo ? dateTo.toDateString() : "To"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={dateTo}
+                onSelect={setDateTo}
+                hidden={{
+                  before: dateFrom ?? undefined,
+                  after: new Date(),
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+
+      {/* Table */}
       {loading ? (
         <p className="text-center">Loading...</p>
       ) : (
@@ -274,16 +378,7 @@ export default function AdminArticlesManager() {
                     {a.attachments && a.attachments.length > 0 ? (
                       <div className="flex flex-wrap gap-3">
                         {(
-                          [
-                            "image",
-                            "pdf",
-                            "form",
-                            "docx",
-                            "ppt",
-                            "pptx",
-                            "xlsx",
-                            "video",
-                          ] as AttachmentType[]
+                          Object.keys(attachmentIconMap) as AttachmentType[]
                         ).map((type) => {
                           const count = a.attachments?.filter(
                             (att) => att.type === type
@@ -293,12 +388,7 @@ export default function AdminArticlesManager() {
                             <TooltipPrimitive.Provider key={type}>
                               <TooltipPrimitive.Root>
                                 <TooltipPrimitive.Trigger asChild>
-                                  <div
-                                    className="flex items-center gap-1 cursor-default select-none rounded bg-gray-100 px-2 py-1 text-sm text-gray-700 hover:bg-gray-200"
-                                    aria-label={`${count} ${type}${
-                                      count > 1 ? "s" : ""
-                                    }`}
-                                  >
+                                  <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 text-sm text-gray-700 rounded">
                                     {attachmentIconMap[type]}
                                     <span>{count}</span>
                                   </div>
@@ -331,14 +421,12 @@ export default function AdminArticlesManager() {
                       <button
                         onClick={() => handleEdit(a._id)}
                         className="text-blue-600 hover:text-blue-800"
-                        title="Edit"
                       >
                         <Edit2 size={18} />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(a._id)}
                         className="text-red-600 hover:text-red-800"
-                        title="Delete"
                       >
                         <Trash2 size={18} />
                       </button>
@@ -348,6 +436,17 @@ export default function AdminArticlesManager() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="mt-6 flex justify-center">
+          <PaginationWrapper
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </div>
       )}
 

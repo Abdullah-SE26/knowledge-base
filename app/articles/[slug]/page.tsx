@@ -11,7 +11,6 @@ import {
   FileSpreadsheet,
   FilePieChart,
   FileVideo,
-  File,
   FileSignature,
 } from "lucide-react";
 
@@ -60,14 +59,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
     downvotesCount: article.downvotes?.length ?? 0,
   };
 
-  // ✅ Convert Markdown to safe HTML
- const rawMarkdownHtml = await marked.parse(safeArticle.content || "");
-const markdownHtml = purify.sanitize(rawMarkdownHtml);
-
+  const rawMarkdownHtml = await marked.parse(safeArticle.content || "");
+  const markdownHtml = purify.sanitize(rawMarkdownHtml);
 
   return (
     <main className="max-w-3xl mx-auto py-12 px-4">
-      <div className="w-full flex justify-start fixed top-40 left-20 z-50">
+      <div className="w-full flex justify-start fixed top-40 left-82 z-50">
         <BackButton />
       </div>
 
@@ -82,7 +79,7 @@ const markdownHtml = purify.sanitize(rawMarkdownHtml);
       )}
 
       <article
-        className="prose prose-lg mt-6 dark:prose-invert"
+        className="prose prose-lg mt-6 dark:prose-invert max-w-none [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5"
         dangerouslySetInnerHTML={{ __html: markdownHtml }}
       />
 
@@ -105,8 +102,7 @@ const markdownHtml = purify.sanitize(rawMarkdownHtml);
       <div className="mt-8">
         <h3 className="text-xl font-semibold mb-4">Attachments</h3>
 
-        {Array.isArray(article.attachments) &&
-        article.attachments.length > 0 ? (
+        {Array.isArray(article.attachments) && article.attachments.length > 0 ? (
           <ul className="space-y-4">
             {article.attachments.map((attachment, index) => (
               <li key={index} className="flex items-start gap-3">
@@ -133,6 +129,19 @@ const markdownHtml = purify.sanitize(rawMarkdownHtml);
                       alt={attachment.name || "Image"}
                       className="max-w-xs rounded shadow"
                     />
+                  ) : attachment.type === "video" ? (
+                    <>
+                      <video
+                        controls
+                        className="w-full max-w-xl rounded shadow-md"
+                      >
+                        <source src={attachment.url} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {attachment.name || "Video File"}
+                      </p>
+                    </>
                   ) : (
                     <a
                       href={attachment.url}

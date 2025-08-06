@@ -1,4 +1,3 @@
-"use server"; // optional, to clarify this is a server component (Next.js 13+)
 
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";

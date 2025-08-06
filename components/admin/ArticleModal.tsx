@@ -274,7 +274,7 @@ export default function ArticleModal({
             <div className="flex items-center gap-2">
               <Label htmlFor={`${id}-content`}>Content *</Label>
               <a
-                href="https://www.markdownguide.org/cheat-sheet/"
+                href="/markdown-help"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-sm text-blue-600 underline hover:text-blue-800"
