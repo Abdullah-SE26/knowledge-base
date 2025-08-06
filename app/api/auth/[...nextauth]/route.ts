@@ -5,9 +5,9 @@ import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
+import { MongoClient } from "mongodb";
 
-// Allowed access
-const allowedDomain = "mawaridhi.com";
+// Dev override emails
 const devEmails = ["m.abdullahx21@gmail.com"];
 
 // Nodemailer setup
@@ -19,6 +19,25 @@ const transporter = nodemailer.createTransport({
     pass: process.env.EMAIL_SERVER_PASSWORD,
   },
 });
+
+// Fetch user role by email from users collection
+async function getUserRoleByEmail(email: string): Promise<string | null> {
+  const client: MongoClient = await clientPromise;
+  const db = client.db();
+  const user = await db.collection("users").findOne({ email: email.toLowerCase() });
+  return user?.role || null;
+}
+
+// Fetch allowedDomains and exceptionEmails from settings collection
+async function getAllowedSettings() {
+  const client: MongoClient = await clientPromise;
+  const db = client.db();
+  const settings = await db.collection("settings").findOne({});
+  return {
+    allowedDomains: settings?.allowedDomains || [],
+    exceptionEmails: settings?.exceptionEmails || [],
+  };
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: MongoDBAdapter(clientPromise),
@@ -70,26 +89,46 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       const email = user?.email?.toLowerCase() || "";
+      if (!email) return false;
 
-      if (email.endsWith(`@${allowedDomain}`)) return true;
-      if (devEmails.includes(email)) return true;
+      const { allowedDomains, exceptionEmails } = await getAllowedSettings();
+
+      // Allow if email ends with an allowed domain
+      if (allowedDomains.some((domain) => email.endsWith(`@${domain}`))) {
+        return true;
+      }
+
+      // Allow if email is in exceptions
+      if (exceptionEmails.includes(email)) {
+        return true;
+      }
+
+      // Allow if email is in dev emails
+      if (devEmails.includes(email)) {
+        return true;
+      }
 
       return false;
     },
 
     async jwt({ token, user }) {
       if (user) {
+        // First sign in, user object available
         token.email = user.email;
-        token.role = (user as any).role || "user"; // Read role from DB
+        token.role = (user as any).role || "user";
+      } else if (token.email) {
+        // Subsequent calls: get role from DB by email
+        const role = await getUserRoleByEmail(token.email);
+        token.role = role || "user";
       }
       return token;
     },
 
     async session({ session, token }: { session: Session; token: JWT }) {
       if (session.user) {
-        session.user.id = token.sub!;
+        session.user.id = token.sub ?? "";
         session.user.email = token.email ?? null;
-        session.user.role = token.role as string;
+        session.user.role = typeof token.role === "string" ? token.role : "user";
       }
       return session;
     },

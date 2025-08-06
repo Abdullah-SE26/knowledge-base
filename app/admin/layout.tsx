@@ -3,15 +3,28 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Grid, FileText } from "lucide-react"; // Grid for dashboard
+import { Home, Grid, FileText, ShieldUser } from "lucide-react"; // added ShieldStar icon
+import { useSession } from "next-auth/react";
 
-const navItems = [
-  { href: "/admin", icon: Grid, label: "Dashboard" },         // Dashboard icon
+const baseNavItems = [
+  { href: "/admin", icon: Grid, label: "Dashboard" },
   { href: "/admin/articles", icon: FileText, label: "Articles" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  // Build nav items array with conditional super admin link
+  const navItems = React.useMemo(() => {
+    if (session?.user?.role === "superadmin") {
+      return [
+        ...baseNavItems,
+        { href: "api/admin/superadmin", icon: ShieldUser , label: "Super Admin" },
+      ];
+    }
+    return baseNavItems;
+  }, [session?.user?.role]);
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">

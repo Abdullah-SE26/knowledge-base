@@ -10,18 +10,41 @@ export default function LoginForm() {
   const { data: session } = useSession();
   const router = useRouter();
 
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([]);
+  const [exceptions, setExceptions] = useState<string[]>([]);
+  const devEmails = ["m.abdullahx21@gmail.com"];
+
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
-  const allowedDomain = "mawaridhi.com";
-  const devEmails = ["m.abdullahx21@gmail.com"];
-
+  // Redirect if already signed in
   useEffect(() => {
     if (session) {
       router.push("/");
     }
   }, [session, router]);
+
+  // Fetch allowed domains & exceptions from public endpoint
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const res = await fetch("/api/public/login-settings");
+        if (res.ok) {
+          const data = await res.json();
+          setAllowedDomains(data.allowedDomains || []);
+          setExceptions(data.exceptionEmails || []);
+        } else {
+          setAllowedDomains([]);
+          setExceptions([]);
+        }
+      } catch {
+        setAllowedDomains([]);
+        setExceptions([]);
+      }
+    }
+    fetchSettings();
+  }, []);
 
   if (session) {
     return (
@@ -39,9 +62,10 @@ export default function LoginForm() {
     const emailInput = form.elements.namedItem("email") as HTMLInputElement;
     const email = emailInput.value.trim().toLowerCase();
 
-    // Client-side domain check (UX only)
-    if (!email.endsWith(`@${allowedDomain}`) && !devEmails.includes(email)) {
-      setError(" ❌ Error! Invalid domain. Please use your company provided email.")
+    // Check if email domain is allowed OR email is in exceptions OR devEmails
+    const domainAllowed = allowedDomains.some((d) => email.endsWith(`@${d}`));
+    if (!domainAllowed && !exceptions.includes(email) && !devEmails.includes(email)) {
+      setError("❌ Error! Invalid domain or email not allowed.");
       return;
     }
 
@@ -63,7 +87,7 @@ export default function LoginForm() {
         router.push("/verify-request");
       }, 1000);
     } else {
-      setError("❌ Error! Invalid domain. Please use your company provided email.")
+      setError("❌ Error! Failed to send verification link.");
     }
   };
 
@@ -105,7 +129,7 @@ export default function LoginForm() {
           name="email"
           id="email"
           required
-          placeholder={`example@${allowedDomain}`}
+          placeholder="example@yourdomain.com"
           className="dark:text-white block w-full px-4 py-2 border text-black border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 transition"
           disabled={loading || sent}
         />
@@ -151,4 +175,3 @@ export default function LoginForm() {
     </form>
   );
 }
-
