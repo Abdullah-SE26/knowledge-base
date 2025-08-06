@@ -94,8 +94,9 @@ Summary: Server-side detail page showing one article in full.
 ## 
 
 TODO
-fix the attachments not opening issue
-use markdown editor instead of the current editor
-add pagination
-add serach
 delete unused packages and libraries
+add target blank to visit it help desk in accordion.
+the latest articles in article/page.tsx should appera on top and also add pagination here and filtering.
+add cursor-pointer on next & previous pagination.
+
+
