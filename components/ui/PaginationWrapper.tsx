@@ -65,7 +65,7 @@ export function PaginationWrapper({
             </PaginationItem>
           ) : (
             <PaginationItem key={page}>
-              <PaginationLink
+              <PaginationLink 
                 href="#"
                 isActive={page === currentPage}
                 onClick={(e) => {
