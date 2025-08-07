@@ -53,6 +53,7 @@ export function PaginationWrapper({
       <PaginationContent>
         <PaginationItem>
           <PaginationPrevious
+           className= "cursor-pointer"
             onClick={() => currentPage > 1 && onPageChange(currentPage - 1)}
             aria-disabled={currentPage === 1}
           />
@@ -81,6 +82,7 @@ export function PaginationWrapper({
 
         <PaginationItem>
           <PaginationNext
+           className= "cursor-pointer"
             onClick={() =>
               currentPage < totalPages && onPageChange(currentPage + 1)
             }

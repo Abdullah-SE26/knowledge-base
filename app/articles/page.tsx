@@ -1,4 +1,3 @@
-
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
@@ -21,7 +20,7 @@ interface SerializedArticle {
   subject?: string;
   content: string;
   tags: string[];
-  attachments: any[]; // Replace with correct type if you want
+  attachments: any[];
   createdAt: string;
   createdAtFormatted: string;
   updatedAt: string;
@@ -30,10 +29,12 @@ interface SerializedArticle {
   downvotesCount: number;
 }
 
+const PAGE_SIZE = 9;
+
 export default async function ArticlesPage({
   searchParams,
 }: {
-  searchParams?: { q?: string };
+  searchParams?: { q?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
   if (!session || !session.user?.email?.endsWith("@gmail.com")) {
@@ -41,14 +42,17 @@ export default async function ArticlesPage({
   }
 
   const searchQuery = searchParams?.q?.toLowerCase() || "";
+  const currentPage = parseInt(searchParams?.page || "1", 10);
+  const skip = (currentPage - 1) * PAGE_SIZE;
 
   await connectMongoDB();
 
-  const articles = (await Article.find()
-    .sort({ upvotes: -1, createdAt: -1 })
+  // Fetch all articles sorted by latest
+  const allArticles = (await Article.find()
+    .sort({ createdAt: -1 }) // Show latest first
     .lean()) as unknown as (IArticleDocument & { _id: Types.ObjectId })[];
 
-  const filteredArticles = articles
+  const filteredArticles = allArticles
     .filter((a) => a.title && a.subject && a.content)
     .filter((article) => {
       const titleMatch = article.title.toLowerCase().includes(searchQuery);
@@ -57,11 +61,13 @@ export default async function ArticlesPage({
       const tagMatch =
         article.tags?.some((tag) => tag.toLowerCase().includes(searchQuery)) ??
         false;
-
       return titleMatch || subjectMatch || tagMatch;
     });
 
-  const serialized: SerializedArticle[] = filteredArticles.map((article) => ({
+  const paginatedArticles = filteredArticles.slice(skip, skip + PAGE_SIZE);
+  const totalPages = Math.ceil(filteredArticles.length / PAGE_SIZE);
+
+  const serialized: SerializedArticle[] = paginatedArticles.map((article) => ({
     _id: article._id.toString(),
     slug: article.slug,
     title: article.title,
@@ -84,7 +90,13 @@ export default async function ArticlesPage({
   return (
     <main className="max-w-6xl mx-auto px-4 py-8">
       <h1 className="text-3xl text-center font-bold mb-6">All Articles</h1>
-      <ArticlesSearchClient articles={serialized} />
+
+      <ArticlesSearchClient
+        articles={serialized}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        initialSearchQuery={searchQuery}
+      />
     </main>
   );
 }
