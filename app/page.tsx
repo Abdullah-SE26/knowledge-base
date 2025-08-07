@@ -1,5 +1,5 @@
 import connectMongoDB from "@/lib/mongodb";
-import Article, { IArticle } from "@/models/Article";
+import Article, { IArticleDocument } from "@/models/Article";
 import { Types } from "mongoose";
 import HomeClient from "@/components/HomeClient"; // <-- new client component
 import { Metadata } from "next";
@@ -15,7 +15,7 @@ export default async function Home() {
 
   const articlesFromDb = (await Article.find()
     .sort({ upvotes: -1, createdAt: -1 })
-    .lean()) as unknown as IArticle[];
+    .lean()) as unknown as IArticleDocument[];
 
   const articles = articlesFromDb.map((article) => ({
     _id: (article._id as Types.ObjectId).toString(),

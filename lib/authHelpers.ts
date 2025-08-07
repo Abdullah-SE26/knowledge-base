@@ -10,21 +10,39 @@ export async function checkAuthorization(
   await connectMongoDB();
 
   const settings = await Settings.findOne({}).lean();
-  const allowedDomains = settings?.allowedDomains || [];
-  const exceptionEmails = settings?.exceptionEmails || [];
 
-  const domainAllowed = allowedDomains.some((domain) => email.endsWith(`@${domain}`));
-  const exceptionAllowed = exceptionEmails.includes(email);
+  if (!settings) {
+    return { authorized: false, reason: "Settings not found" };
+  }
+
+  const normalizedEmail = email.toLowerCase();
+  const allowedDomains = settings.allowedDomains || [];
+  const exceptionEmails = settings.exceptionEmails || [];
+
+  const domainAllowed = allowedDomains.some((domain) =>
+    normalizedEmail.endsWith(`@${domain.toLowerCase()}`)
+  );
+  const exceptionAllowed = exceptionEmails
+    .map((e) => e.toLowerCase())
+    .includes(normalizedEmail);
 
   if (!domainAllowed && !exceptionAllowed) {
     return { authorized: false, reason: "Domain or email not allowed" };
   }
 
-  if (options?.requireSuperadmin && role !== "superadmin") {
+  // Default role to "user"
+  role = role || "user";
+  const normalizedRole = role.toLowerCase();
+
+  if (options?.requireSuperadmin && normalizedRole !== "superadmin") {
     return { authorized: false, reason: "Superadmin required" };
   }
 
-  if (options?.requireAdmin && role !== "admin" && role !== "superadmin") {
+  if (
+    options?.requireAdmin &&
+    normalizedRole !== "admin" &&
+    normalizedRole !== "superadmin"
+  ) {
     return { authorized: false, reason: "Admin or superadmin required" };
   }
 

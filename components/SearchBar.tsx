@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react"; // Using lucide-react for the search icon, you can replace with your own icon if needed
+import { Search, X } from "lucide-react";
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -13,20 +13,25 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
   useEffect(() => {
     const timeout = setTimeout(() => {
       onSearch(query.trim().toLowerCase());
-    }, 300); // debounce 300ms
+    }, 300);
 
     return () => clearTimeout(timeout);
   }, [query, onSearch]);
 
   return (
     <div className="relative w-full max-w-md mx-auto">
+      <label htmlFor="search-input" className="sr-only">
+        Search articles
+      </label>
       <Search
         size={20}
-        className="absolute left-3 top-5 -translate-y-1/2 text-gray-400 pointer-events-none"
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
       />
       <input
+        id="search-input"
         type="text"
         value={query}
+        autoComplete="off"
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search articles by title or tags..."
         className="
@@ -39,7 +44,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           rounded-md
           shadow-sm
           pl-10
-          pr-4
+          pr-10
           py-2
           text-gray-900
           dark:text-gray-100
@@ -52,6 +57,16 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
           duration-200
         "
       />
+      {query && (
+        <button
+          type="button"
+          aria-label="Clear search"
+          onClick={() => setQuery("")}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+        >
+          <X size={18} />
+        </button>
+      )}
     </div>
   );
 };

@@ -1,3 +1,13 @@
+function logDebug(...args: any[]) {
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[DEBUG]", ...args);
+  }
+}
+
+function logError(...args: any[]) {
+  console.error("[ERROR]", ...args);
+}
+
 import NextAuth, { NextAuthOptions } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
@@ -6,11 +16,10 @@ import nodemailer from "nodemailer";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
 import { MongoClient } from "mongodb";
+import User from "@/models/User";
 
-// Dev override emails
 const devEmails = ["m.abdullahx21@gmail.com"];
 
-// Nodemailer setup
 const transporter = nodemailer.createTransport({
   host: process.env.EMAIL_SERVER_HOST,
   port: parseInt(process.env.EMAIL_SERVER_PORT || "587"),
@@ -20,24 +29,29 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Fetch user role by email from users collection
 async function getUserRoleByEmail(email: string): Promise<string | null> {
   const client: MongoClient = await clientPromise;
-  const db = client.db();
+  // Use correct DB name here:
+  const db = client.db("it-kb-cluster");
   const user = await db
     .collection("users")
     .findOne({ email: email.toLowerCase() });
+  logDebug("[getUserRoleByEmail] user role found:", user?.role);
   return user?.role || null;
 }
 
-// Fetch allowedDomains and exceptionEmails from settings collection
 async function getAllowedSettings() {
   const client: MongoClient = await clientPromise;
-  const db = client.db();
+  const db = client.db("it-kb-cluster");
   const settings = await db.collection("settings").findOne({});
+  logDebug("[getAllowedSettings] settings from DB:", settings);
   return {
-    allowedDomains: settings?.allowedDomains || [],
-    exceptionEmails: settings?.exceptionEmails || [],
+    allowedDomains: (settings?.allowedDomains || []).map((d: string) =>
+      d.toLowerCase()
+    ),
+    exceptionEmails: (settings?.exceptionEmails || []).map((e: string) =>
+      e.toLowerCase()
+    ),
   };
 }
 
@@ -46,7 +60,7 @@ export const authOptions: NextAuthOptions = {
   debug: true,
 
   session: {
-    strategy: "jwt", // required for middleware token access
+    strategy: "jwt",
   },
 
   providers: [
@@ -60,10 +74,9 @@ export const authOptions: NextAuthOptions = {
         },
       },
       from: process.env.EMAIL_FROM,
-      async sendVerificationRequest({ identifier, url, provider }) {
-        console.log("📩 Attempting to send magic link to:", identifier);
-        const email = identifier.toLowerCase();
 
+      async sendVerificationRequest({ identifier, url, provider }) {
+        const email = identifier.toLowerCase();
         const { allowedDomains, exceptionEmails } = await getAllowedSettings();
 
         const isAllowed =
@@ -71,13 +84,15 @@ export const authOptions: NextAuthOptions = {
           exceptionEmails.includes(email) ||
           devEmails.includes(email);
 
+        logDebug("[sendVerificationRequest] Attempt for:", email);
         if (!isAllowed) {
-          console.log("❌ Email not allowed, skipping send:", email);
+          logDebug(
+            "[sendVerificationRequest] ❌ Email not allowed. Aborting send."
+          );
           return;
         }
 
         const logoUrl = "https://mawaridhi-kb.vercel.app/logo.png";
-
         const html = `
           <div style="background: #f9fafb; padding: 30px; font-family: Arial, sans-serif;">
             <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
@@ -96,15 +111,17 @@ export const authOptions: NextAuthOptions = {
 
         try {
           const info = await transporter.sendMail({
-            to: identifier,
+            to: email,
             from: provider.from,
             subject: "Your sign-in link for Mawaridhi",
             html,
           });
-
-          console.log("✅ Email sent:", info);
-        } catch (err) {
-          console.error("❌ Failed to send email:", err);
+          logDebug(
+            "[sendVerificationRequest] ✅ Email sent:",
+            info.messageId || info
+          );
+        } catch (error) {
+          logError("[sendVerificationRequest] ❌ Email send failed:", error);
         }
       },
     }),
@@ -112,51 +129,106 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async signIn({ user }) {
-      const email = user?.email?.toLowerCase() || "";
+      const email = user?.email?.toLowerCase();
       if (!email) return false;
 
+      const client = await clientPromise;
+      const db = client.db("it-kb-cluster");
+
+      // Find user in DB
+      const dbUser = await db.collection("users").findOne({ email });
+
+      if (!dbUser?.role) {
+        // Assign default role "user" in DB if missing
+        await db
+          .collection("users")
+          .updateOne({ email }, { $set: { role: "user" } });
+        logDebug("[signIn] Assigned default role 'user' to:", email);
+      }
+
+      const role = dbUser?.role || "user";
+
+      // Your existing allowed domains and exceptions logic
       const { allowedDomains, exceptionEmails } = await getAllowedSettings();
 
-      // Allow if email ends with an allowed domain
-      if (allowedDomains.some((domain) => email.endsWith(`@${domain}`))) {
-        return true;
-      }
+      const isAllowed =
+        allowedDomains.some((domain) => email.endsWith(`@${domain}`)) ||
+        exceptionEmails.includes(email) ||
+        devEmails.includes(email);
 
-      // Allow if email is in exceptions
-      if (exceptionEmails.includes(email)) {
-        return true;
-      }
-
-      // Allow if email is in dev emails
-      if (devEmails.includes(email)) {
-        return true;
-      }
-
-      return false;
+      logDebug(
+        `[signIn] Login ${isAllowed ? "✅ allowed" : "❌ denied"} for ${email}`
+      );
+      return isAllowed;
     },
 
     async jwt({ token, user }) {
       if (user) {
-        // First sign in, user object available
         token.email = user.email;
-        token.role = (user as any).role || "user";
-        console.log("JWT callback triggered", { user, token });
 
-      } else if (token.email) {
-        // Subsequent calls: get role from DB by email
-        const role = await getUserRoleByEmail(token.email);
+        // Try getting role from DB
+        let role = (user as any).role;
+        if (!role) {
+          role = await getUserRoleByEmail(user.email!);
+        }
+
+        // If still no role, check exception
+        if (!role) {
+          const { exceptionEmails } = await getAllowedSettings();
+          if (
+            exceptionEmails.includes(user.email!.toLowerCase()) ||
+            devEmails.includes(user.email!.toLowerCase())
+          ) {
+            role = "user";
+            logDebug(
+              "[jwt] Assigned 'user' role to exception email:",
+              user.email
+            );
+          }
+        }
+
         token.role = role || "user";
+
+        logDebug(
+          "[jwt] Token initialized for:",
+          token.email,
+          "| role:",
+          token.role
+        );
+      } else if (token.email) {
+        // Refreshing token
+        let role = await getUserRoleByEmail(token.email);
+        if (!role) {
+          const { exceptionEmails } = await getAllowedSettings();
+          if (
+            exceptionEmails.includes(token.email.toLowerCase()) ||
+            devEmails.includes(token.email.toLowerCase())
+          ) {
+            role = "user";
+            logDebug(
+              "[jwt] Refreshed: assigned 'user' role to exception email:",
+              token.email
+            );
+          }
+        }
+
+        token.role = role || "user";
+        logDebug(
+          "[jwt] Token refreshed for:",
+          token.email,
+          "| role:",
+          token.role
+        );
       }
+
       return token;
     },
-
     async session({ session, token }: { session: Session; token: JWT }) {
-      if (session.user) {
-        session.user.id = token.sub ?? "";
-        session.user.email = token.email ?? null;
-        session.user.role =
-          typeof token.role === "string" ? token.role : "user";
-      }
+      session.user.id = token.sub ?? "";
+      session.user.email = token.email ?? null;
+      session.user.role = typeof token.role === "string" ? token.role : "user";
+
+      logDebug("[session] Session role:", session.user.role);
       return session;
     },
 
@@ -175,150 +247,3 @@ export const authOptions: NextAuthOptions = {
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
-
-// resend setup below
-// import NextAuth, { NextAuthOptions } from "next-auth";
-// import EmailProvider from "next-auth/providers/email";
-// import { MongoDBAdapter } from "@auth/mongodb-adapter";
-// import clientPromise from "@/lib/clientPromise";
-// import { Resend } from "resend";
-// import { JWT } from "next-auth/jwt";
-// import { Session } from "next-auth";
-// import { MongoClient } from "mongodb";
-
-// // Dev override emails
-// const devEmails = ["m.abdullahx21@gmail.com"];
-
-// // Initialize Resend
-// const resend = new Resend(process.env.RESEND_API_KEY);
-
-// // Get user role by email from MongoDB
-// async function getUserRoleByEmail(email: string): Promise<string | null> {
-//   const client: MongoClient = await clientPromise;
-//   const db = client.db();
-//   const user = await db
-//     .collection("users")
-//     .findOne({ email: email.toLowerCase() });
-//   return user?.role || null;
-// }
-
-// // Fetch allowed domains and exception emails
-// async function getAllowedSettings(): Promise<{
-//   allowedDomains: string[];
-//   exceptionEmails: string[];
-// }> {
-//   const client: MongoClient = await clientPromise;
-//   const db = client.db();
-//   const settings = await db.collection("settings").findOne({});
-//   return {
-//     allowedDomains: settings?.allowedDomains || [],
-//     exceptionEmails: settings?.exceptionEmails || [],
-//   };
-// }
-
-// export const authOptions: NextAuthOptions = {
-//   adapter: MongoDBAdapter(clientPromise),
-//   session: {
-//     strategy: "jwt",
-//   },
-
-//   providers: [
-//     EmailProvider({
-//       from: process.env.EMAIL_FROM,
-//       async sendVerificationRequest({ identifier, url, provider }) {
-//         const logoUrl = "https://mawaridhi-kb.vercel.app/logo.png";
-
-//         const html = `
-//           <div style="background: #f9fafb; padding: 30px; font-family: Arial, sans-serif;">
-//             <div style="max-width: 600px; margin: auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);">
-//               <div style="padding: 30px; text-align: center;">
-//                 <img src="${logoUrl}" alt="Mawaridhi Logo" style="height: 100px; margin-bottom: 20px;" />
-//                 <h2 style="color: #0f172a; margin-bottom: 20px;">Sign in to Mawaridhi Knowledge Base</h2>
-//                 <p style="margin-bottom: 30px;">Click the button below to securely sign in:</p>
-//                 <a href="${url}" style="background: #0f172a; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">Sign in</a>
-//                 <p style="margin-top: 40px; font-size: 12px; color: #888;">
-//                   If you didn’t request this, you can safely ignore this email.
-//                 </p>
-//               </div>
-//             </div>
-//           </div>
-//         `;
-
-//         try {
-//           const { error } = await resend.emails.send({
-//             to: [identifier],
-//             from: provider.from || "",
-//             subject: "Your sign-in link for Mawaridhi",
-//             html,
-//           });
-
-//           if (error) throw error;
-
-//           console.log("✅ Verification email sent via Resend.");
-//         } catch (err) {
-//           console.error("❌ Failed to send verification email via Resend:", err);
-//         }
-//       },
-//     }),
-//   ],
-
-//   callbacks: {
-//     async signIn({ user }) {
-//       const email = user?.email?.toLowerCase() || "";
-//       if (!email) return false;
-
-//       const { allowedDomains, exceptionEmails } = await getAllowedSettings();
-
-//       // Allow if email ends with an allowed domain
-//       if (allowedDomains.some((domain: string) => email.endsWith(`@${domain}`))) {
-//         return true;
-//       }
-
-//       // Allow if email is in exception list
-//       if (exceptionEmails.includes(email)) {
-//         return true;
-//       }
-
-//       // Allow if email is in dev list
-//       if (devEmails.includes(email)) {
-//         return true;
-//       }
-
-//       return false;
-//     },
-
-//     async jwt({ token, user }) {
-//       if (user) {
-//         token.email = user.email;
-//         token.role = (user as any).role || "user";
-//       } else if (token.email) {
-//         const role = await getUserRoleByEmail(token.email);
-//         token.role = role || "user";
-//       }
-//       return token;
-//     },
-
-//     async session({ session, token }: { session: Session; token: JWT }) {
-//       if (session.user) {
-//         session.user.id = token.sub ?? "";
-//         session.user.email = token.email ?? null;
-//         session.user.role = typeof token.role === "string" ? token.role : "user";
-//       }
-//       return session;
-//     },
-
-//     async redirect({ url, baseUrl }) {
-//       return url.startsWith(baseUrl) ? "/" : baseUrl;
-//     },
-//   },
-
-//   pages: {
-//     signIn: "/login",
-//     verifyRequest: "/verify-request",
-//   },
-
-//   secret: process.env.NEXTAUTH_SECRET,
-// };
-
-// const handler = NextAuth(authOptions);
-// export { handler as GET, handler as POST };

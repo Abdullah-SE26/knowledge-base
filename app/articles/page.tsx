@@ -1,9 +1,9 @@
-
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import connectMongoDB from "@/lib/mongodb";
 import Article, { IArticleDocument } from "@/models/Article";
+import Settings from "@/models/Settings"; // Your Settings model
 import { Types } from "mongoose";
 import ArticlesSearchClient from "@/components/ArticlesSearchClient";
 import { format } from "date-fns";
@@ -21,7 +21,7 @@ interface SerializedArticle {
   subject?: string;
   content: string;
   tags: string[];
-  attachments: any[]; // Replace with correct type if you want
+  attachments: any[];
   createdAt: string;
   createdAtFormatted: string;
   updatedAt: string;
@@ -36,13 +36,32 @@ export default async function ArticlesPage({
   searchParams?: { q?: string };
 }) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.email?.endsWith("@gmail.com")) {
+  if (!session?.user?.email) redirect("/login");
+
+  await connectMongoDB();
+
+  // Load settings from DB
+  const settings = await Settings.findOne({}).lean();
+  const allowedDomains = (settings?.allowedDomains || []).map((d: string) =>
+    d.toLowerCase()
+  );
+  const exceptionEmails = (settings?.exceptionEmails || []).map((e: string) =>
+    e.toLowerCase()
+  );
+
+  const userEmail = session.user.email.toLowerCase();
+
+  // Check if user email matches allowed domains or exception emails
+  const domainAllowed = allowedDomains.some((domain) =>
+    userEmail.endsWith(`@${domain}`)
+  );
+  const exceptionAllowed = exceptionEmails.includes(userEmail);
+
+  if (!domainAllowed && !exceptionAllowed) {
     redirect("/login");
   }
 
   const searchQuery = searchParams?.q?.toLowerCase() || "";
-
-  await connectMongoDB();
 
   const articles = (await Article.find()
     .sort({ upvotes: -1, createdAt: -1 })

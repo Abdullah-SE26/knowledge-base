@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Boxes from "@/components/ui/background-boxes"; // if using default
+import WarpBackground from "@/components/magicui/warp-background";
 import SearchBar from "@/components/SearchBar";
 import LogoSwitcher from "./LogoSwitcher";
 
@@ -11,14 +11,23 @@ interface HeroSectionProps {
 
 const HeroSection: React.FC<HeroSectionProps> = ({ onSearch }) => {
   return (
-    <div className="relative min-h-[450px] overflow-hidden flex flex-col items-center justify-center bg-white dark:bg-[#0f0f0f] px-4">
-      <Boxes />
-
+    <WarpBackground
+      className="relative min-h-[450px] flex flex-col items-center justify-center
+        bg-white dark:bg-[#0f0f0f] px-4"
+      perspective={120}
+      panelSizePercent={8}
+      gridColors={[
+        "rgba(138, 138, 255, 0.25)", // top
+        "rgba(138, 138, 255, 0.25)", // right
+        "rgba(138, 138, 255, 0.25)", // bottom
+        "rgba(138, 138, 255, 0.25)", // left
+      ]}
+    >
       <div className="z-50">
         <LogoSwitcher />
       </div>
 
-      <div className="z-10 text-center font-bold font-serif text-4xl mb-6">
+      <div className="z-10 text-center font-bold font-serif text-4xl mb-6 text-gray-900 dark:text-white">
         How can we help?
       </div>
 
@@ -40,7 +49,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onSearch }) => {
           and create a ticket for your problem.
         </h5>
       </div>
-    </div>
+    </WarpBackground>
   );
 };
 

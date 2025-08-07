@@ -14,7 +14,8 @@ export async function requireAdmin(req: Request, options: RequireAdminOptions = 
     return null;
   }
 
-  const role = session.user?.role;
+  // Default role to "user" if missing
+  const role = session.user?.role ?? "user";
 
   if (options.requireSuperadmin) {
     if (role !== "superadmin") {

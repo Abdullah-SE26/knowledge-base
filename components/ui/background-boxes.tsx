@@ -4,11 +4,12 @@ import React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
-  const rows = new Array(150).fill(1);
-  const cols = new Array(100).fill(1);
-  const colors = [
+export const BoxesCore = ({ className }: { className?: string }) => {
+  const rows = 30;
+  const cols = 30;
+  const totalBoxes = rows * cols;
 
+  const colors = [
     "#E6E6FF",
     "#B8B8FF",
     "#8A8AFF",
@@ -21,45 +22,42 @@ export const BoxesCore = ({ className, ...rest }: { className?: string }) => {
     "#000047",
     "#00001A",
   ];
-  const getRandomColor = () => {
-    return colors[Math.floor(Math.random() * colors.length)];
-  };
+
+  const getRandomColor = () =>
+    colors[Math.floor(Math.random() * colors.length)];
 
   return (
     <div
       className={cn(
-        "absolute -top-1/4 left-1/4 z-0 flex h-full w-full -translate-x-1/2 -translate-y-1/2 p-4",
+        "absolute inset-0 z-0 pointer-events-none overflow-hidden",
         className
       )}
-      style={{
-        transform: "translate(-40%,-60%) scale(0.675) rotate(0deg) translateZ(0)",
-      }}
     >
-      {rows.map((_, i) => (
-        <motion.div
-          key={`row${i}`}
-          className="relative h-8 w-16 border-l border-slate-200 dark:border-slate-800"
-        >
-          {cols.map((_, j) => (
+      <div
+        className="absolute inset-0 grid"
+        style={{
+          gridTemplateColumns: `repeat(${cols}, 1fr)`,
+          gridTemplateRows: `repeat(${rows}, 1fr)`,
+        }}
+      >
+        {[...Array(totalBoxes)].map((_, i) => {
+          const delay = (i % cols) * 0.05;
+
+          return (
             <motion.div
-              whileHover={{
-                backgroundColor: `${getRandomColor()}`,
-                transition: { duration: 0 },
-              }}
+              key={i}
+              className="w-6 h-6 border border-slate-200 dark:border-slate-800"
+              initial={{ backgroundColor: getRandomColor() }}
               animate={{
-                transition: { duration: 2 },
+                backgroundColor: getRandomColor(),
               }}
-              key={`col${j}`}
-              className="relative h-8 w-16 border-t border-r border-slate-200 dark:border-slate-800"
-            >
-              {/* Plus sign SVG removed */}
-            </motion.div>
-          ))}
-        </motion.div>
-      ))}
+              
+            />
+          );
+        })}
+      </div>
     </div>
   );
 };
 
-export default React.memo(BoxesCore); // correct component name
-
+export default React.memo(BoxesCore);
