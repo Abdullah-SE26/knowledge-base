@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import connectMongoDB from "@/lib/mongodb"; // Your Mongoose connection helper
+import connectMongoDB from "@/lib/mongodb";
 import User from "@/models/User";
 import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: Request) {
-  // Require at least admin (default)
   const session = await requireAdmin(req);
-  if (!session)
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   await connectMongoDB();
 
@@ -23,10 +23,10 @@ export async function GET(req: Request) {
 }
 
 export async function PUT(req: Request) {
-  // Require superadmin explicitly for updating user roles
   const session = await requireAdmin(req, { requireSuperadmin: true });
-  if (!session)
+  if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   await connectMongoDB();
 
@@ -45,16 +45,29 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { role: newRole },
-      { new: true }
-    );
+    const user = await User.findById(userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json(user);
+    if (user.email === "m.abdullahx21@gmail.com") {
+      return NextResponse.json(
+        { error: "Cannot change role of protected user." },
+        { status: 403 }
+      );
+    }
+
+    user.role = newRole;
+    await user.save();
+
+    return NextResponse.json({
+      message: "Role updated successfully",
+      user: {
+        _id: user._id,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to update user role" },

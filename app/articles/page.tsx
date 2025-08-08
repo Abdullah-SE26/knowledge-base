@@ -37,9 +37,17 @@ export default async function ArticlesPage({
   searchParams?: { q?: string; page?: string };
 }) {
   const session = await getServerSession(authOptions);
-  if (!session || !session.user?.email?.endsWith("@gmail.com")) {
-    redirect("/login");
-  }
+
+if (!session) {
+  redirect("/login");
+}
+
+const role = session.user?.role ?? "user";
+
+if (!["user", "admin", "superadmin"].includes(role)) {
+  redirect("/unauthorized");
+}
+
 
   const searchQuery = searchParams?.q?.toLowerCase() || "";
   const currentPage = parseInt(searchParams?.page || "1", 10);

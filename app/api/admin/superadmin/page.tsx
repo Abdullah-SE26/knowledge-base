@@ -99,7 +99,8 @@ export default function SuperAdminPage() {
     const trimmed = newDomain.trim().toLowerCase();
     if (!trimmed) return toast.error("Domain cannot be empty");
     if (!domainRegex.test(trimmed)) return toast.error("Invalid domain format");
-    if (allowedDomains.includes(trimmed)) return toast.error("Domain already added");
+    if (allowedDomains.includes(trimmed))
+      return toast.error("Domain already added");
 
     confirmModalAction(
       "Add Domain",
@@ -144,7 +145,8 @@ export default function SuperAdminPage() {
   }
 
   function removeException(email: string) {
-    if (email === PROTECTED_EMAIL) return toast.error("This email cannot be removed");
+    if (email === PROTECTED_EMAIL)
+      return toast.error("This email cannot be removed");
 
     confirmModalAction(
       "Remove Exception",
@@ -167,7 +169,10 @@ export default function SuperAdminPage() {
           const res = await fetch("/api/admin/superadmin/settings", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ allowedDomains, exceptionEmails: exceptions }),
+            body: JSON.stringify({
+              allowedDomains,
+              exceptionEmails: exceptions,
+            }),
           });
           if (!res.ok) throw new Error("Failed to save settings");
           toast.success("Settings saved successfully");
@@ -184,7 +189,11 @@ export default function SuperAdminPage() {
 
   async function changeUserRole(userId: string, newRole: string) {
     const oldUsers = [...users];
-    setUsers(users.map((user) => (user.id === userId ? { ...user, role: newRole } : user)));
+    setUsers(
+      users.map((user) =>
+        user.id === userId ? { ...user, role: newRole } : user
+      )
+    );
 
     try {
       const res = await fetch("/api/admin/superadmin/users", {
@@ -201,7 +210,8 @@ export default function SuperAdminPage() {
   }
 
   function handleDeleteUser(userId: string, email: string) {
-    if (email === PROTECTED_EMAIL) return toast.error("This user cannot be deleted.");
+    if (email === PROTECTED_EMAIL)
+      return toast.error("This user cannot be deleted.");
 
     confirmModalAction(
       "Delete User",
@@ -350,7 +360,9 @@ export default function SuperAdminPage() {
                   <tr>
                     <th className="px-4 py-2">Email</th>
                     <th className="px-4 py-2">Role</th>
-                    <th className="px-4 py-2 text-center">Change Role & Actions</th>
+                    <th className="px-4 py-2 text-center">
+                      Change Role & Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -366,7 +378,7 @@ export default function SuperAdminPage() {
                           value={role}
                           onChange={(e) => changeUserRole(id, e.target.value)}
                           className="rounded border px-2 py-1 dark:bg-gray-800 dark:text-white"
-                          disabled={isBusy}
+                          disabled={isBusy || email === PROTECTED_EMAIL}
                         >
                           <option value="user">User</option>
                           <option value="admin">Admin</option>
