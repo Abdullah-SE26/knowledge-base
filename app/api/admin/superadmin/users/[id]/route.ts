@@ -35,4 +35,35 @@ export async function PATCH(
   } catch (error) {
     return NextResponse.json({ error: "Failed to update user role" }, { status: 500 });
   }
+
 }
+export async function DELETE(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  const session = await requireAdmin(req, { requireSuperadmin: true });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await connectMongoDB();
+
+  const { id } = params;
+
+  // Prevent deletion of protected super admin email
+  const protectedEmail = "m.abdullahx21@gmail.com";
+  const user = await User.findById(id);
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (user.email === protectedEmail) {
+    return NextResponse.json(
+      { error: "This user cannot be deleted" },
+      { status: 403 }
+    );
+  }
+
+  await User.findByIdAndDelete(id);
+
+  return NextResponse.json({ message: "User deleted successfully" });
+}
+
