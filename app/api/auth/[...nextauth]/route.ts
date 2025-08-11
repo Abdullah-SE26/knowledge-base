@@ -56,7 +56,7 @@ async function getAllowedSettings() {
 }
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+ adapter: MongoDBAdapter(clientPromise, { databaseName: "it-kb-cluster" }),
   debug: true,
 
   session: {
