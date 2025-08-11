@@ -42,13 +42,17 @@ function normalizeTags(input: unknown): string[] {
     if (typeof input === "string") {
       const parsed = JSON.parse(input);
       if (Array.isArray(parsed)) {
-        return parsed.map((t) => (typeof t === "string" ? t : t?.value)).filter(Boolean);
+        return parsed
+          .map((t) => (typeof t === "string" ? t : t?.value))
+          .filter(Boolean);
       }
       return [String(parsed)];
     }
 
     if (Array.isArray(input)) {
-      return input.map((t) => (typeof t === "string" ? t : t?.value)).filter(Boolean);
+      return input
+        .map((t) => (typeof t === "string" ? t : t?.value))
+        .filter(Boolean);
     }
   } catch (err) {
     console.warn("Failed to parse tags:", err);
