@@ -16,9 +16,7 @@ type AttachmentType =
   | "ppt"
   | "pptx"
   | "xlsx"
-  | "video"
-  | "jpg"
-  | "png";
+  | "video";
 
 interface Attachment {
   type: AttachmentType;
@@ -36,8 +34,6 @@ const VALID_ATTACHMENT_TYPES: AttachmentType[] = [
   "pptx",
   "xlsx",
   "video",
-  "jpg",
-  "png",
 ];
 
 function normalizeTags(input: unknown): string[] {
@@ -112,8 +108,11 @@ export async function PUT(
               if (!att?.url || !att?.name) return null;
 
               let type = att.type;
+              // Normalize jpg/png to image
               if (type === "jpg" || type === "png") type = "image";
+              // Normalize mp4/webm to video
               if (type === "mp4" || type === "webm") type = "video";
+
               if (!VALID_ATTACHMENT_TYPES.includes(type)) {
                 type = "form";
               }
@@ -154,17 +153,26 @@ export async function PUT(
     // Use normalized slug or generate from title
     const slugToUse = slug ? generateSlug(slug) : generateSlug(title);
 
-    // Check for slug conflicts excluding current article
-    const slugConflict = await Article.findOne({
-      slug: slugToUse,
-      _id: { $ne: article._id },
-    });
+    // Normalize the article’s current slug too for safe comparison
+    const currentArticleSlugNormalized = generateSlug(article.slug || "");
 
-    if (slugConflict) {
-      return NextResponse.json(
-        { error: "Slug already in use by another article" },
-        { status: 400 }
-      );
+    logDebug("Input slug:", slug);
+    logDebug("Normalized slug to use:", slugToUse);
+    logDebug("Current article slug:", article.slug);
+    logDebug("Current article slug normalized:", currentArticleSlugNormalized);
+
+    // Only check for slug conflict if slug actually changed
+    if (slugToUse !== currentArticleSlugNormalized) {
+      const slugConflict = await Article.findOne({
+        slug: slugToUse,
+        _id: { $ne: article._id },
+      });
+      if (slugConflict) {
+        return NextResponse.json(
+          { error: "Slug already in use by another article" },
+          { status: 400 }
+        );
+      }
     }
 
     article.slug = slugToUse;
@@ -181,12 +189,19 @@ export async function PUT(
           content
         );
 
-        logDebug("Full translationResult:", JSON.stringify(translationResult, null, 2));
+        logDebug(
+          "Full translationResult:",
+          JSON.stringify(translationResult, null, 2)
+        );
 
         // Destructure translated fields
         const { title_ar, subject_ar, content_ar } = translationResult;
 
-        logDebug("Assigning translations to article:", { title_ar, subject_ar, content_ar });
+        logDebug("Assigning translations to article:", {
+          title_ar,
+          subject_ar,
+          content_ar,
+        });
 
         article.title_ar = title_ar;
         article.subject_ar = subject_ar;

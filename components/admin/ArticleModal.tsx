@@ -398,7 +398,7 @@ export default function ArticleModal({
               {isSaving ? (
                 <>
                   <span className="loading loading-spinner loading-sm mr-2"></span>
-                  Saving...
+                   Saving & Translating...
                 </>
               ) : (
                 "Save"

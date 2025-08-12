@@ -75,9 +75,12 @@ const ArticleSchema = new Schema<IArticleDocument>(
   { timestamps: true }
 );
 
-const ArticleModel =
-  mongoose.models.Article ||
-  mongoose.model<IArticleDocument>("Article", ArticleSchema);
+// Delete the existing model to ensure schema updates are applied
+if (mongoose.models.Article) {
+  delete mongoose.models.Article;
+}
+
+const ArticleModel = mongoose.model<IArticleDocument>("Article", ArticleSchema);
 
 export default ArticleModel;
 
