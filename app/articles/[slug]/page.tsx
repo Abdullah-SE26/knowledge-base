@@ -54,9 +54,12 @@ export default async function ArticlePage({ params }: ArticlePageProps) {
       downvotesCount={safeArticle.downvotesCount}
       attachments={safeArticle.attachments}
       initialContent={{
-        title: safeArticle.title,
-        subject: safeArticle.subject || "",
-        content: safeArticle.content || "",
+        title_en: safeArticle.title,
+        subject_en: safeArticle.subject || "",
+        content_en: safeArticle.content || "",
+        title_ar: safeArticle.title_ar || "",
+        subject_ar: safeArticle.subject_ar || "",
+        content_ar: safeArticle.content_ar || "",
       }}
     />
   );

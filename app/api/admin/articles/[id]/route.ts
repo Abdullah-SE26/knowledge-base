@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
+import { translateArticleFields } from "@/lib/azureTranslate";
+
+function logDebug(...args: any[]) {
+  console.debug("[DEBUG]", ...args);
+}
 
 type AttachmentType =
   | "pdf"
@@ -62,6 +67,13 @@ function normalizeTags(input: unknown): string[] {
   return [];
 }
 
+function generateSlug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }
@@ -100,11 +112,8 @@ export async function PUT(
               if (!att?.url || !att?.name) return null;
 
               let type = att.type;
-
-              // Normalize extensions to general types
               if (type === "jpg" || type === "png") type = "image";
               if (type === "mp4" || type === "webm") type = "video";
-
               if (!VALID_ATTACHMENT_TYPES.includes(type)) {
                 type = "form";
               }
@@ -119,7 +128,7 @@ export async function PUT(
             .filter(Boolean) as Attachment[];
         }
       } catch (err) {
-        console.warn("Failed to parse attachments JSON:", err);
+        logDebug("Failed to parse attachments JSON:", err);
       }
     }
 
@@ -128,19 +137,79 @@ export async function PUT(
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
 
+    // Track if main text fields changed
+    const textChanged =
+      title !== article.title ||
+      content !== article.content ||
+      subject !== article.subject;
+
+    // Update English fields
     article.title = title;
     article.content = content;
     article.subject = subject;
     article.tags = tags;
     article.attachments = attachments;
     article.updatedAt = new Date();
-    if (slug) article.slug = slug;
+
+    // Use normalized slug or generate from title
+    const slugToUse = slug ? generateSlug(slug) : generateSlug(title);
+
+    // Check for slug conflicts excluding current article
+    const slugConflict = await Article.findOne({
+      slug: slugToUse,
+      _id: { $ne: article._id },
+    });
+
+    if (slugConflict) {
+      return NextResponse.json(
+        { error: "Slug already in use by another article" },
+        { status: 400 }
+      );
+    }
+
+    article.slug = slugToUse;
+
+    // Log before translation
+    logDebug("Translating article fields", { title, subject, content });
+
+    // If main text changed, re-translate to Arabic
+    if (textChanged) {
+      try {
+        const translationResult = await translateArticleFields(
+          title,
+          subject,
+          content
+        );
+
+        logDebug("Full translationResult:", JSON.stringify(translationResult, null, 2));
+
+        // Destructure translated fields
+        const { title_ar, subject_ar, content_ar } = translationResult;
+
+        logDebug("Assigning translations to article:", { title_ar, subject_ar, content_ar });
+
+        article.title_ar = title_ar;
+        article.subject_ar = subject_ar;
+        article.content_ar = content_ar;
+
+        logDebug("Article after assignment:", {
+          title_ar: article.title_ar,
+          subject_ar: article.subject_ar,
+          content_ar: article.content_ar,
+        });
+      } catch (translationError) {
+        logDebug("Translation update failed:", translationError);
+        // Don't fail the update if translation fails
+      }
+    }
 
     await article.save();
 
+    logDebug("Article saved successfully:", article);
+
     return NextResponse.json(article, { status: 200 });
   } catch (err) {
-    console.error("Failed to update article:", err);
+    logDebug("Failed to update article:", err);
     return NextResponse.json(
       { error: "Failed to update article" },
       { status: 500 }

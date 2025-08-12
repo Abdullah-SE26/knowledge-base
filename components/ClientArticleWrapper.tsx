@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
-import Translate from "./TranslateComponent"; // your client translate component
 import BackButton from "./BackButton";
 import ArticleActionsClient from "./ArticleActionsClient";
 
@@ -18,9 +17,12 @@ import {
 } from "lucide-react";
 
 interface ArticlePayload {
-  title: string;
-  subject: string;
-  content: string;
+  title_en: string;
+  subject_en: string;
+  content_en: string;
+  title_ar: string;
+  subject_ar: string;
+  content_ar: string;
 }
 
 interface ClientArticleWrapperProps {
@@ -44,18 +46,29 @@ export default function ClientArticleWrapper({
   attachments,
   initialContent,
 }: ClientArticleWrapperProps) {
-  const [displayContent, setDisplayContent] =
-    useState<ArticlePayload>(initialContent);
+  const [language, setLanguage] = useState<"en" | "ar">("en");
+
+  // Select content based on language with fallback
+  const title =
+    language === "ar"
+      ? initialContent.title_ar || initialContent.title_en
+      : initialContent.title_en;
+  const subject =
+    language === "ar"
+      ? initialContent.subject_ar || initialContent.subject_en
+      : initialContent.subject_en;
+  const content =
+    language === "ar"
+      ? initialContent.content_ar || initialContent.content_en
+      : initialContent.content_en;
+
   const [markdownHtml, setMarkdownHtml] = useState("");
 
   useEffect(() => {
-    const rawMarkdownHtml = marked.parse(displayContent.content || "", {
-      async: false,
-    }) as string;
+    const rawMarkdownHtml = marked.parse(content || "", { async: false }) as string;
     const cleanHtml = DOMPurify.sanitize(rawMarkdownHtml);
-
     setMarkdownHtml(cleanHtml);
-  }, [displayContent.content]);
+  }, [content]);
 
   return (
     <main className="max-w-3xl mx-auto py-12 px-4 relative">
@@ -63,27 +76,40 @@ export default function ClientArticleWrapper({
         <BackButton />
       </div>
 
-      <div className="fixed top-20 right-8 z-50 bg-white dark:bg-gray-900 p-2 rounded-md shadow-md">
-        <Translate
-          articleId={articleId}
-          original={initialContent}
-          onTranslate={setDisplayContent}
-        />
+      {/* Language toggle UI */}
+      <div className="fixed top-20 right-8 z-50 bg-white dark:bg-gray-900 p-2 rounded-md shadow-md flex gap-2">
+        <button
+          className={`px-3 py-1 rounded ${
+            language === "en" ? "bg-blue-600 text-white" : "bg-gray-200 dark:bg-gray-700"
+          }`}
+          onClick={() => setLanguage("en")}
+          disabled={language === "en"}
+          aria-label="Switch to English"
+        >
+          English
+        </button>
+        <button
+          className={`px-3 py-1 rounded ${
+            language === "ar" ? "bg-blue-600 text-white" : "bg-gray-200 dark:bg-gray-700"
+          }`}
+          onClick={() => setLanguage("ar")}
+          disabled={language === "ar"}
+          aria-label="Switch to Arabic"
+        >
+          العربية
+        </button>
       </div>
 
-      <h1 className="text-4xl font-bold mb-6 mt-[-25px] text-center">
-        {displayContent.title}
-      </h1>
+      <h1 className="text-4xl font-bold mb-6 mt-[-25px] text-center">{title}</h1>
 
-      {displayContent.subject && (
-        <h2 className="text-lg text-gray-600 mb-4 dark:text-white">
-          Subject: {displayContent.subject}
-        </h2>
+      {subject && (
+        <h2 className="text-lg text-gray-600 mb-4 dark:text-white">Subject: {subject}</h2>
       )}
 
       <article
         className="prose prose-lg mt-6 dark:prose-invert max-w-none [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5"
         dangerouslySetInnerHTML={{ __html: markdownHtml }}
+        dir={language === "ar" ? "rtl" : "ltr"}
       />
 
       <div className="mt-8 text-sm text-gray-500">
@@ -96,7 +122,7 @@ export default function ClientArticleWrapper({
           articleId={slug}
           initialUpvotes={upvotesCount}
           initialDownvotes={downvotesCount}
-          title={displayContent.title}
+          title={title}
         />
       </div>
 
@@ -132,10 +158,7 @@ export default function ClientArticleWrapper({
                     />
                   ) : attachment.type === "video" ? (
                     <>
-                      <video
-                        controls
-                        className="w-full max-w-xl rounded shadow-md"
-                      >
+                      <video controls className="w-full max-w-xl rounded shadow-md">
                         <source src={attachment.url} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
@@ -158,9 +181,7 @@ export default function ClientArticleWrapper({
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500 italic">
-            No attachments for this article
-          </p>
+          <p className="text-gray-500 italic">No attachments for this article</p>
         )}
       </div>
     </main>

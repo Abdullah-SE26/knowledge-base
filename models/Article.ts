@@ -9,9 +9,12 @@ export interface IAttachment {
 
 export interface IArticleData {
   title: string;
+  title_ar?: string; // Arabic title
   content: string;
+  content_ar?: string; // Arabic content
   slug: string;
   subject?: string;
+  subject_ar?: string; // Arabic subject
   attachments?: IAttachment[];
   upvotes?: string[];
   downvotes?: string[];
@@ -58,9 +61,12 @@ const AttachmentSchema = new Schema<IAttachment>(
 const ArticleSchema = new Schema<IArticleDocument>(
   {
     title: { type: String, required: true },
+    title_ar: { type: String }, // optional
     content: { type: String, required: true },
+    content_ar: { type: String }, // optional
     slug: { type: String, required: true, unique: true },
     subject: { type: String },
+    subject_ar: { type: String }, // optional
     attachments: { type: [AttachmentSchema], default: [] },
     upvotes: [{ type: String }],
     downvotes: [{ type: String }],
@@ -78,9 +84,12 @@ export default ArticleModel;
 export interface ArticleSerialized {
   _id: string;
   title: string;
+  title_ar?: string;
   content: string;
+  content_ar?: string;
   slug: string;
   subject?: string;
+  subject_ar?: string;
   attachments?: IAttachment[];
   upvotes?: string[];
   downvotes?: string[];
@@ -88,25 +97,27 @@ export interface ArticleSerialized {
   createdAt?: string;
   updatedAt?: string;
   createdAtFormatted?: string;
-  upvotesCount: number;    // add this
-  downvotesCount: number;  // add this
+  upvotesCount: number;
+  downvotesCount: number;
 }
 
 export function serializeArticle(article: IArticleDocument): ArticleSerialized {
   return {
-    _id: article._id.toString(), // now TypeScript knows _id is ObjectId
+    _id: article._id.toString(),
     title: article.title,
+    title_ar: article.title_ar,
     content: article.content,
+    content_ar: article.content_ar,
     slug: article.slug,
     subject: article.subject,
+    subject_ar: article.subject_ar,
     attachments: article.attachments,
     upvotes: article.upvotes,
     downvotes: article.downvotes,
     tags: article.tags,
     createdAt: article.createdAt?.toISOString(),
     updatedAt: article.updatedAt?.toISOString(),
-    upvotesCount: article.upvotes?.length || 0,     
+    upvotesCount: article.upvotes?.length || 0,
     downvotesCount: article.downvotes?.length || 0,
-    
   };
 }

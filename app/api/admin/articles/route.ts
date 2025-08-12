@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
+import { translateArticleFields } from "@/lib/azureTranslate";
 
 type AttachmentType =
   | "pdf"
@@ -133,6 +134,22 @@ export async function POST(req: Request) {
     const tags = normalizeTags(tagsInput);
     const attachments = sanitizeAttachments(attachmentsInput);
 
+    // Translate first
+    let title_ar = "";
+    let subject_ar = "";
+    let content_ar = "";
+    try {
+      const result = await translateArticleFields(title, subject, content);
+      console.log("Translation result:", result);
+
+      title_ar = result.title_ar;
+      subject_ar = result.subject_ar;
+      content_ar = result.content_ar;
+    } catch (translationError) {
+      console.error("Translation failed:", translationError);
+    }
+
+    // Create and save article with Arabic fields included
     const newArticle = new Article({
       title,
       slug,
@@ -140,12 +157,25 @@ export async function POST(req: Request) {
       content,
       tags,
       attachments,
-      // Mongoose timestamps will handle createdAt and updatedAt automatically
+      title_ar,
+      subject_ar,
+      content_ar,
+    });
+
+    console.log("Before save, article data:", {
+      title_ar: newArticle.title_ar,
+      subject_ar: newArticle.subject_ar,
+      content_ar: newArticle.content_ar,
     });
 
     await newArticle.save();
 
-    return NextResponse.json(newArticle, { status: 201 });
+    // Re-fetch saved article to get fresh document with all fields
+    const savedArticle = await Article.findById(newArticle._id).lean();
+
+    console.log("Saved article:", savedArticle);
+
+    return NextResponse.json(savedArticle, { status: 201 });
   } catch (err) {
     console.error("Create article error:", err);
     return NextResponse.json(
@@ -186,6 +216,7 @@ export async function PUT(req: Request) {
       );
     }
 
+    // Update English fields first (or keep old if null)
     article.title = title ?? article.title;
     article.content = content ?? article.content;
     article.subject = subject;
@@ -218,9 +249,29 @@ export async function PUT(req: Request) {
       article.attachments = sanitizeAttachments(attachmentsInput);
     }
 
+    // Translate updated fields before save
+    try {
+      const result = await translateArticleFields(
+        article.title,
+        article.subject,
+        article.content
+      );
+      article.title_ar = result.title_ar;
+      article.subject_ar = result.subject_ar;
+      article.content_ar = result.content_ar;
+    } catch (translationError) {
+      console.error("Translation failed on update:", translationError);
+      // Proceed even if translation fails
+    }
+
     await article.save();
 
-    return NextResponse.json({ success: true, article });
+    // Re-fetch updated article for complete data
+    const updatedArticle = await Article.findById(id).lean();
+
+    console.log("Saved article:", updatedArticle);
+
+    return NextResponse.json({ success: true, article: updatedArticle });
   } catch (error) {
     console.error("Error updating article:", error);
     return NextResponse.json(
@@ -254,8 +305,6 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
-
-   
 
     return NextResponse.json(
       { message: "Article deleted successfully" },
@@ -314,7 +363,7 @@ export async function GET(req: Request) {
 
     const total = await Article.countDocuments(filter);
     const articles = await Article.find(filter)
-      .select("title slug subject createdAt upvotes downvotes tags content attachments")
+      .select("title slug subject createdAt upvotes downvotes tags content attachments title_ar subject_ar content_ar")
       .sort(sort)
       .skip(skip)
       .limit(limit)
