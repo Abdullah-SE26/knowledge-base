@@ -48,7 +48,6 @@ export default function ClientArticleWrapper({
 }: ClientArticleWrapperProps) {
   const [language, setLanguage] = useState<"en" | "ar">("en");
 
-  // Select content based on language with fallback
   const title =
     language === "ar"
       ? initialContent.title_ar || initialContent.title_en
@@ -65,74 +64,98 @@ export default function ClientArticleWrapper({
   const [markdownHtml, setMarkdownHtml] = useState("");
 
   useEffect(() => {
-    const rawMarkdownHtml = marked.parse(content || "", { async: false }) as string;
+    const rawMarkdownHtml = marked.parse(content || "", {
+      async: false,
+    }) as string;
     const cleanHtml = DOMPurify.sanitize(rawMarkdownHtml);
     setMarkdownHtml(cleanHtml);
   }, [content]);
 
   return (
-    <main className="max-w-3xl mx-auto py-12 px-4 relative">
-      <div className="w-full flex justify-start fixed top-40 left-82 z-50">
+    <main className="max-w-6xl mx-auto py-12 px-4 relative">
+      {/* Back button aligned to card */}
+      <div className="mb-6">
         <BackButton />
       </div>
 
-      {/* Language toggle UI */}
-      <div className="fixed top-20 right-8 z-50 bg-white dark:bg-gray-900 p-2 rounded-md shadow-md flex gap-2">
-        <button
-          className={`px-3 py-1 rounded ${
-            language === "en" ? "bg-blue-600 text-white" : "bg-gray-200 dark:bg-gray-700"
-          }`}
-          onClick={() => setLanguage("en")}
-          disabled={language === "en"}
-          aria-label="Switch to English"
-        >
-          English
-        </button>
-        <button
-          className={`px-3 py-1 rounded ${
-            language === "ar" ? "bg-blue-600 text-white" : "bg-gray-200 dark:bg-gray-700"
-          }`}
-          onClick={() => setLanguage("ar")}
-          disabled={language === "ar"}
-          aria-label="Switch to Arabic"
-        >
-          العربية
-        </button>
-      </div>
+      {/* Article card */}
+      <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+        {/* Translate toggle */}
+        <div className="absolute top-4 right-6 flex items-center gap-2">
+          <button
+            className={`px-3 py-1 rounded ${
+              language === "en"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700"
+            }`}
+            onClick={() => setLanguage("en")}
+            disabled={language === "en"}
+          >
+            English
+          </button>
+          <button
+            className={`px-3 py-1 rounded ${
+              language === "ar"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 dark:bg-gray-700"
+            }`}
+            onClick={() => setLanguage("ar")}
+            disabled={language === "ar"}
+          >
+            العربية
+          </button>
+        </div>
 
-      <h1 className="text-4xl font-bold mb-6 mt-[-25px] text-center">{title}</h1>
+        {/* Title */}
+        <h1 className="text-3xl sm:text-4xl font-semibold text-center mb-2 text-gray-900 dark:text-gray-100 leading-tight">
+          {title}
+        </h1>
 
-      {subject && (
-        <h2 className="text-lg text-gray-600 mb-4 dark:text-white">Subject: {subject}</h2>
-      )}
+        {/* Subject */}
+        {subject && (
+          <h2 className="text-lg text-gray-600 dark:text-gray-300 italic text-center mb-8">
+          {subject}
+          </h2>
+        )}
 
-      <article
-        className="prose prose-lg mt-6 dark:prose-invert max-w-none [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-5"
-        dangerouslySetInnerHTML={{ __html: markdownHtml }}
-        dir={language === "ar" ? "rtl" : "ltr"}
-      />
-
-      <div className="mt-8 text-sm text-gray-500">
-        <p>Created: {createdAtFormatted}</p>
-        {updatedAtFormatted && <p>Last updated: {updatedAtFormatted}</p>}
-      </div>
-
-      <div className="mt-8">
-        <ArticleActionsClient
-          articleId={slug}
-          initialUpvotes={upvotesCount}
-          initialDownvotes={downvotesCount}
-          title={title}
+        {/* Content */}
+        <article
+          className="prose prose-lg dark:prose-invert max-w-5xl mx-auto leading-relaxed text-gray-800 dark:text-gray-100 [&_ul]:list-disc [&_ol]:list-decimal [&_li]:ml-6 prose-headings:font-semibold prose-headings:tracking-tight prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:underline"
+          dangerouslySetInnerHTML={{ __html: markdownHtml }}
+          dir={language === "ar" ? "rtl" : "ltr"}
         />
+
+        {/* Bottom row aligned perfectly */}
+        <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-3 mt-8">
+          <ArticleActionsClient
+            articleId={slug}
+            initialUpvotes={upvotesCount}
+            initialDownvotes={downvotesCount}
+            title={title}
+          />
+          <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm">
+            <span>Created: {createdAtFormatted}</span>
+            {updatedAtFormatted && (
+              <span className="ml-2">| Updated: {updatedAtFormatted}</span>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="mt-8">
-        <h3 className="text-xl font-semibold mb-4">Attachments</h3>
+      {/* Attachments section matches card width */}
+      <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+        <h3 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">
+          Attachments
+        </h3>
 
         {attachments && attachments.length > 0 ? (
           <ul className="space-y-4">
             {attachments.map((attachment, index) => (
-              <li key={index} className="flex items-start gap-3">
+              <li
+                key={index}
+                className="flex items-start gap-3 bg-gray-50 dark:bg-gray-900 p-4 rounded-lg shadow-sm"
+              >
+                {/* Icon */}
                 {attachment.type === "image" ? (
                   <ImageIcon className="w-5 h-5 text-blue-600 mt-1" />
                 ) : attachment.type === "pdf" ? (
@@ -149,16 +172,20 @@ export default function ClientArticleWrapper({
                   <FileSignature className="w-5 h-5 text-gray-600 mt-1" />
                 )}
 
+                {/* File preview / link */}
                 <div className="flex flex-col">
                   {attachment.type === "image" ? (
                     <img
                       src={attachment.url}
                       alt={attachment.name || "Image"}
-                      className="max-w-xs rounded shadow"
+                      className="max-w-sm rounded shadow"
                     />
                   ) : attachment.type === "video" ? (
                     <>
-                      <video controls className="w-full max-w-xl rounded shadow-md">
+                      <video
+                        controls
+                        className="w-full max-w-xl rounded shadow-md"
+                      >
                         <source src={attachment.url} type="video/mp4" />
                         Your browser does not support the video tag.
                       </video>
@@ -181,7 +208,9 @@ export default function ClientArticleWrapper({
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500 italic">No attachments for this article</p>
+          <p className="text-gray-500 italic">
+            No attachments for this article
+          </p>
         )}
       </div>
     </main>

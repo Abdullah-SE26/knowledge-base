@@ -3,8 +3,10 @@ import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
 import { translateArticleFields } from "@/lib/azureTranslate";
+import { Types } from "mongoose";
+import slugify from "slugify";
 
-function logDebug(...args: any[]) {
+function logDebug(...args: unknown[]) {
   console.debug("[DEBUG]", ...args);
 }
 
@@ -38,7 +40,6 @@ const VALID_ATTACHMENT_TYPES: AttachmentType[] = [
 
 function normalizeTags(input: unknown): string[] {
   if (!input) return [];
-
   try {
     if (typeof input === "string") {
       const parsed = JSON.parse(input);
@@ -49,7 +50,6 @@ function normalizeTags(input: unknown): string[] {
       }
       return [String(parsed)];
     }
-
     if (Array.isArray(input)) {
       return input
         .map((t) => (typeof t === "string" ? t : t?.value))
@@ -59,7 +59,6 @@ function normalizeTags(input: unknown): string[] {
     console.warn("Failed to parse tags:", err);
     return typeof input === "string" ? [input] : [];
   }
-
   return [];
 }
 
@@ -85,7 +84,6 @@ export async function PUT(
     const title = form.get("title") as string | null;
     const content = form.get("content") as string | null;
     const subject = (form.get("subject") as string) || "";
-    const slug = form.get("slug") as string | null;
     const tagsRaw = form.getAll("tags");
     const attachmentsRaw = form.get("attachments") as string | null;
 
@@ -106,17 +104,12 @@ export async function PUT(
           attachments = parsed
             .map((att) => {
               if (!att?.url || !att?.name) return null;
-
               let type = att.type;
-              // Normalize jpg/png to image
               if (type === "jpg" || type === "png") type = "image";
-              // Normalize mp4/webm to video
               if (type === "mp4" || type === "webm") type = "video";
-
               if (!VALID_ATTACHMENT_TYPES.includes(type)) {
                 type = "form";
               }
-
               return {
                 type,
                 url: att.url,
@@ -150,35 +143,21 @@ export async function PUT(
     article.attachments = attachments;
     article.updatedAt = new Date();
 
-    // Use normalized slug or generate from title
-    const slugToUse = slug ? generateSlug(slug) : generateSlug(title);
+    // --- FIX: Always generate slug from title ---
+    const normalizedSlug = generateSlug(title!); // title is required
+    article.slug = normalizedSlug;
 
-    // Normalize the article’s current slug too for safe comparison
-    const currentArticleSlugNormalized = generateSlug(article.slug || "");
-
-    logDebug("Input slug:", slug);
-    logDebug("Normalized slug to use:", slugToUse);
-    logDebug("Current article slug:", article.slug);
-    logDebug("Current article slug normalized:", currentArticleSlugNormalized);
-
-    // Only check for slug conflict if slug actually changed
-    if (slugToUse !== currentArticleSlugNormalized) {
-      const slugConflict = await Article.findOne({
-        slug: slugToUse,
-        _id: { $ne: article._id },
-      });
-      if (slugConflict) {
-        return NextResponse.json(
-          { error: "Slug already in use by another article" },
-          { status: 400 }
-        );
-      }
+    // Check for slug conflicts (exclude current article)
+    const slugConflict = await Article.findOne({
+      slug: normalizedSlug,
+      _id: { $ne: new Types.ObjectId(params.id) },
+    });
+    if (slugConflict) {
+      return NextResponse.json(
+        { error: "Slug already in use by another article" },
+        { status: 400 }
+      );
     }
-
-    article.slug = slugToUse;
-
-    // Log before translation
-    logDebug("Translating article fields", { title, subject, content });
 
     // If main text changed, re-translate to Arabic
     if (textChanged) {
@@ -188,39 +167,16 @@ export async function PUT(
           subject,
           content
         );
-
-        logDebug(
-          "Full translationResult:",
-          JSON.stringify(translationResult, null, 2)
-        );
-
-        // Destructure translated fields
         const { title_ar, subject_ar, content_ar } = translationResult;
-
-        logDebug("Assigning translations to article:", {
-          title_ar,
-          subject_ar,
-          content_ar,
-        });
-
         article.title_ar = title_ar;
         article.subject_ar = subject_ar;
         article.content_ar = content_ar;
-
-        logDebug("Article after assignment:", {
-          title_ar: article.title_ar,
-          subject_ar: article.subject_ar,
-          content_ar: article.content_ar,
-        });
       } catch (translationError) {
         logDebug("Translation update failed:", translationError);
-        // Don't fail the update if translation fails
       }
     }
 
     await article.save();
-
-    logDebug("Article saved successfully:", article);
 
     return NextResponse.json(article, { status: 200 });
   } catch (err) {
