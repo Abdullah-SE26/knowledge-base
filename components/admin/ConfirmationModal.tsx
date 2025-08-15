@@ -27,7 +27,7 @@ export default function ConfirmationModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
       onClick={onClose}
       aria-modal="true"
       role="dialog"
