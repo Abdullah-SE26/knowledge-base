@@ -78,13 +78,17 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-4 mt-6 flex-wrap" aria-live="polite" aria-atomic="true">
+    <div
+      className="flex items-center gap-3 flex-wrap"
+      aria-live="polite"
+      aria-atomic="true"
+    >
       <button
         onClick={() => handleVote("upvote")}
         disabled={loading}
         aria-label={title ? `Upvote article titled ${title}` : "Upvote article"}
         aria-pressed={userVote === "upvote"}
-        className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 ${
+        className={`flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 disabled:opacity-50 ${
           userVote === "upvote"
             ? "bg-green-500 text-white"
             : "bg-green-100 text-green-700 hover:bg-green-200"
@@ -99,7 +103,7 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
         disabled={loading}
         aria-label={title ? `Downvote article titled ${title}` : "Downvote article"}
         aria-pressed={userVote === "downvote"}
-        className={`flex items-center gap-1 px-3 py-2 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 ${
+        className={`flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-500 disabled:opacity-50 ${
           userVote === "downvote"
             ? "bg-red-500 text-white"
             : "bg-red-100 text-red-700 hover:bg-red-200"
@@ -112,7 +116,7 @@ const ArticleActionsClient: React.FC<ArticleActionsClientProps> = ({
       <button
         onClick={handleCopy}
         aria-label={title ? `Copy link to article titled ${title}` : "Copy link to article"}
-        className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium transition cursor-pointer dark:text-black focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
+        className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded-md text-sm font-medium transition cursor-pointer dark:text-black focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-500"
       >
         {copied ? (
           <>

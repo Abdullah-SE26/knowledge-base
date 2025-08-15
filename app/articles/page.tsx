@@ -38,16 +38,15 @@ export default async function ArticlesPage({
 }) {
   const session = await getServerSession(authOptions);
 
-if (!session) {
-  redirect("/login");
-}
+  if (!session) {
+    redirect("/login");
+  }
 
-const role = session.user?.role ?? "user";
+  const role = session.user?.role ?? "user";
 
-if (!["user", "admin", "superadmin"].includes(role)) {
-  redirect("/unauthorized");
-}
-
+  if (!["user", "admin", "superadmin"].includes(role)) {
+    redirect("/unauthorized");
+  }
 
   const searchQuery = searchParams?.q?.toLowerCase() || "";
   const currentPage = parseInt(searchParams?.page || "1", 10);
@@ -55,27 +54,30 @@ if (!["user", "admin", "superadmin"].includes(role)) {
 
   await connectMongoDB();
 
-  // Fetch all articles sorted by latest
-  const allArticles = (await Article.find()
-    .sort({ createdAt: -1 }) // Show latest first
+  // Build MongoDB filter for search
+  const mongoFilter = searchQuery
+    ? {
+        $or: [
+          { title: { $regex: searchQuery, $options: "i" } },
+          { subject: { $regex: searchQuery, $options: "i" } },
+          { tags: { $elemMatch: { $regex: searchQuery, $options: "i" } } },
+        ],
+      }
+    : {};
+
+  // Get total count for pagination
+  const totalArticles = await Article.countDocuments(mongoFilter);
+
+  // Fetch paginated + sorted articles directly from MongoDB
+  const articles = (await Article.find(mongoFilter)
+    .sort({ createdAt: -1 }) // Newest first
+    .skip(skip)
+    .limit(PAGE_SIZE)
     .lean()) as unknown as (IArticleDocument & { _id: Types.ObjectId })[];
 
-  const filteredArticles = allArticles
-    .filter((a) => a.title && a.subject && a.content)
-    .filter((article) => {
-      const titleMatch = article.title.toLowerCase().includes(searchQuery);
-      const subjectMatch =
-        article.subject?.toLowerCase().includes(searchQuery) ?? false;
-      const tagMatch =
-        article.tags?.some((tag) => tag.toLowerCase().includes(searchQuery)) ??
-        false;
-      return titleMatch || subjectMatch || tagMatch;
-    });
+  const totalPages = Math.ceil(totalArticles / PAGE_SIZE);
 
-  const paginatedArticles = filteredArticles.slice(skip, skip + PAGE_SIZE);
-  const totalPages = Math.ceil(filteredArticles.length / PAGE_SIZE);
-
-  const serialized: SerializedArticle[] = paginatedArticles.map((article) => ({
+  const serialized: SerializedArticle[] = articles.map((article) => ({
     _id: article._id.toString(),
     slug: article.slug,
     title: article.title,

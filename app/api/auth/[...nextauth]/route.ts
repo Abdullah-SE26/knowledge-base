@@ -10,13 +10,13 @@ function logError(...args: any[]) {
 
 import NextAuth, { NextAuthOptions } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
-import { MongoDBAdapter } from "@auth/mongodb-adapter";
+import { CustomMongoDBAdapter } from "@/lib/customMongoAdapter";
 import clientPromise from "@/lib/clientPromise";
 import nodemailer from "nodemailer";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
 import { MongoClient } from "mongodb";
-import User from "@/models/User";
+
 
 const devEmails = ["m.abdullahx21@gmail.com"];
 
@@ -56,7 +56,7 @@ async function getAllowedSettings() {
 }
 
 export const authOptions: NextAuthOptions = {
- adapter: MongoDBAdapter(clientPromise, { databaseName: "it-kb-cluster" }),
+  adapter: CustomMongoDBAdapter(clientPromise),
   debug: true,
 
   session: {
@@ -128,114 +128,102 @@ export const authOptions: NextAuthOptions = {
   ],
 
   callbacks: {
-    async signIn({ user }) {
-      const email = user?.email?.toLowerCase();
-      if (!email) return false;
+  async signIn({ user }) {
+    const email = user?.email?.toLowerCase();
+    if (!email) return false;
 
-      const client = await clientPromise;
-      const db = client.db("it-kb-cluster");
+    const client = await clientPromise;
+    const db = client.db("it-kb-cluster");
 
-      // Find user in DB
-      const dbUser = await db.collection("users").findOne({ email });
+    const dbUser = await db.collection("users").findOne({ email });
 
-      if (!dbUser?.role) {
-        // Assign default role "user" in DB if missing
-        await db
-          .collection("users")
-          .updateOne({ email }, { $set: { role: "user" } });
-        logDebug("[signIn] Assigned default role 'user' to:", email);
-      }
+    if (!dbUser) {
+      // User doesn't exist: create new with default role 'user'
+      await db.collection("users").insertOne({
+        email,
+        role: "user",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      logDebug("[signIn] Created new user with role 'user':", email);
+    } else {
+      logDebug("[signIn] Existing user role:", dbUser.role);
+    }
 
-      const role = dbUser?.role || "user";
+    const { allowedDomains, exceptionEmails } = await getAllowedSettings();
 
-      // Your existing allowed domains and exceptions logic
-      const { allowedDomains, exceptionEmails } = await getAllowedSettings();
+    const isAllowed =
+      allowedDomains.some((domain) => email.endsWith(`@${domain}`)) ||
+      exceptionEmails.includes(email) ||
+      devEmails.includes(email);
 
-      const isAllowed =
-        allowedDomains.some((domain) => email.endsWith(`@${domain}`)) ||
-        exceptionEmails.includes(email) ||
-        devEmails.includes(email);
-
-      logDebug(
-        `[signIn] Login ${isAllowed ? "✅ allowed" : "❌ denied"} for ${email}`
-      );
-      return isAllowed;
-    },
-
-    async jwt({ token, user }) {
-      if (user) {
-        token.email = user.email;
-
-        // Try getting role from DB
-        let role = (user as any).role;
-        if (!role) {
-          role = await getUserRoleByEmail(user.email!);
-        }
-
-        // If still no role, check exception
-        if (!role) {
-          const { exceptionEmails } = await getAllowedSettings();
-          if (
-            exceptionEmails.includes(user.email!.toLowerCase()) ||
-            devEmails.includes(user.email!.toLowerCase())
-          ) {
-            role = "user";
-            logDebug(
-              "[jwt] Assigned 'user' role to exception email:",
-              user.email
-            );
-          }
-        }
-
-        token.role = role || "user";
-
-        logDebug(
-          "[jwt] Token initialized for:",
-          token.email,
-          "| role:",
-          token.role
-        );
-      } else if (token.email) {
-        // Refreshing token
-        let role = await getUserRoleByEmail(token.email);
-        if (!role) {
-          const { exceptionEmails } = await getAllowedSettings();
-          if (
-            exceptionEmails.includes(token.email.toLowerCase()) ||
-            devEmails.includes(token.email.toLowerCase())
-          ) {
-            role = "user";
-            logDebug(
-              "[jwt] Refreshed: assigned 'user' role to exception email:",
-              token.email
-            );
-          }
-        }
-
-        token.role = role || "user";
-        logDebug(
-          "[jwt] Token refreshed for:",
-          token.email,
-          "| role:",
-          token.role
-        );
-      }
-
-      return token;
-    },
-    async session({ session, token }: { session: Session; token: JWT }) {
-      session.user.id = token.sub ?? "";
-      session.user.email = token.email ?? null;
-      session.user.role = typeof token.role === "string" ? token.role : "user";
-
-      logDebug("[session] Session role:", session.user.role);
-      return session;
-    },
-
-    async redirect() {
-      return "/";
-    },
+    logDebug(
+      `[signIn] Login ${isAllowed ? "✅ allowed" : "❌ denied"} for ${email}`
+    );
+    return isAllowed;
   },
+
+  async jwt({ token, user }) {
+    if (user?.email) {
+      token.email = user.email;
+
+      // ALWAYS fetch fresh role from DB on sign-in
+      const role = await getUserRoleByEmail(user.email);
+
+      if (role) {
+        token.role = role;
+      } else {
+        const { exceptionEmails } = await getAllowedSettings();
+        if (
+          exceptionEmails.includes(user.email.toLowerCase()) ||
+          devEmails.includes(user.email.toLowerCase())
+        ) {
+          token.role = "user";
+          logDebug("[jwt] Assigned 'user' role to exception email:", user.email);
+        } else {
+          token.role = "user";
+        }
+      }
+
+      logDebug("[jwt] Token initialized for:", token.email, "| role:", token.role);
+    } else if (token.email) {
+      // Token refresh: fetch fresh role too
+      const role = await getUserRoleByEmail(token.email);
+
+      if (role) {
+        token.role = role;
+      } else {
+        const { exceptionEmails } = await getAllowedSettings();
+        if (
+          exceptionEmails.includes(token.email.toLowerCase()) ||
+          devEmails.includes(token.email.toLowerCase())
+        ) {
+          token.role = "user";
+          logDebug("[jwt] Refreshed: assigned 'user' role to exception email:", token.email);
+        } else {
+          token.role = "user";
+        }
+      }
+
+      logDebug("[jwt] Token refreshed for:", token.email, "| role:", token.role);
+    }
+
+    return token;
+  },
+
+  async session({ session, token }: { session: Session; token: JWT }) {
+    session.user.id = token.sub ?? "";
+    session.user.email = token.email ?? null;
+    session.user.role = typeof token.role === "string" ? token.role : "user";
+
+    logDebug("[session] Session role:", session.user.role);
+    return session;
+  },
+
+  async redirect() {
+    return "/";
+  },
+},
 
   pages: {
     signIn: "/login",

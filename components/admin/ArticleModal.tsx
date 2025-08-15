@@ -59,7 +59,6 @@ function Tooltip({
 interface Tag {
   value: string;
 }
-
 interface Attachment {
   customId?: string;
   type: "pdf" | "image" | "form" | "docx" | "ppt" | "pptx" | "xlsx" | "video";
@@ -90,19 +89,14 @@ interface FormValues {
 
 function getAttachmentTypeFromFilename(filename: string): Attachment["type"] {
   const lower = filename.toLowerCase();
-  if (
-    lower.endsWith(".png") ||
-    lower.endsWith(".jpg") ||
-    lower.endsWith(".jpeg") ||
-    lower.endsWith(".gif")
-  )
+  if ([".png", ".jpg", ".jpeg", ".gif"].some((ext) => lower.endsWith(ext)))
     return "image";
   if (lower.endsWith(".pdf")) return "pdf";
-  if (lower.endsWith(".docx") || lower.endsWith(".doc")) return "docx";
-  if (lower.endsWith(".ppt") || lower.endsWith(".pptx")) return "ppt";
+  if ([".docx", ".doc"].some((ext) => lower.endsWith(ext))) return "docx";
+  if ([".ppt", ".pptx"].some((ext) => lower.endsWith(ext))) return "ppt";
   if (lower.endsWith(".xlsx")) return "xlsx";
-  if (lower.endsWith(".mp4") || lower.endsWith(".webm")) return "video";
-  return "form"; // fallback
+  if ([".mp4", ".webm"].some((ext) => lower.endsWith(ext))) return "video";
+  return "form";
 }
 
 export default function ArticleModal({
@@ -127,13 +121,6 @@ export default function ArticleModal({
   });
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [tagSuggestions] = useState<string[]>([
-    "news",
-    "tech",
-    "webdev",
-    "tutorial",
-    "design",
-  ]);
   const [isSaving, setIsSaving] = useState(false);
   const id = useId();
 
@@ -150,13 +137,11 @@ export default function ArticleModal({
         ...att,
         customId: uuidv4(),
       })) || [];
-
     setAttachments(initialAttachments);
   }, [initialData, reset]);
 
-  const removeAttachment = (index: number) => {
+  const removeAttachment = (index: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const onFormSubmit = async (data: FormValues) => {
     setIsSaving(true);
@@ -187,7 +172,6 @@ export default function ArticleModal({
       );
 
       formData.append("attachments", JSON.stringify(serializedAttachments));
-
       await onSubmit(formData);
     } finally {
       setIsSaving(false);
@@ -196,24 +180,28 @@ export default function ArticleModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-6xl min-w-[1000px] max-h-[95vh] px-8 py-6 sm:px-10 sm:py-8">
+      <DialogContent className="w-full text-black max-w-6xl min-w-[1000px] max-h-[95vh] px-8 py-6 sm:px-10 sm:py-8 bg-white rounded-lg">
         <DialogHeader>
           <DialogTitle>
             {initialData ? "Edit Article" : "Create New Article"}
           </DialogTitle>
         </DialogHeader>
+
         <form
           onSubmit={handleSubmit(onFormSubmit)}
           className="space-y-6 overflow-y-auto max-h-[75vh] pr-2"
         >
           {/* Title */}
-          <div>
-            <Label htmlFor={`${id}-title`}>Title *</Label>
-            <Input
-              id={`${id}-title`}
-              {...register("title", { required: "Title is required" })}
-              autoFocus
-            />
+          <div className="relative">
+            <Label className="mb-2" htmlFor={`${id}-title`}>Title *</Label>
+            <div className="rounded-md border border-gray-300 focus-within:ring-2 focus-within:ring-blue-400 focus-within:ring-offset-1 focus-within:ring-offset-white transition">
+              <Input
+                id={`${id}-title`}
+                {...register("title", { required: "Title is required" })}
+                autoFocus
+                className="bg-white text-black w-full rounded-md outline-none border-none"
+              />
+            </div>
             {errors.title && (
               <p className="text-sm text-red-600 mt-1">
                 {errors.title.message}
@@ -222,12 +210,15 @@ export default function ArticleModal({
           </div>
 
           {/* Subject */}
-          <div>
-            <Label htmlFor={`${id}-subject`}>Subject *</Label>
-            <Input
-              id={`${id}-subject`}
-              {...register("subject", { required: "Subject is required" })}
-            />
+          <div className="relative">
+            <Label className="mb-2" htmlFor={`${id}-subject`}>Subject *</Label>
+            <div className="rounded-md border border-gray-300 focus-within:ring-2 focus-within:ring-blue-400 focus-within:ring-offset-1 focus-within:ring-offset-white transition">
+              <Input
+                id={`${id}-subject`}
+                {...register("subject", { required: "Subject is required" })}
+                className="bg-white text-black w-full rounded-md outline-none border-none "
+              />
+            </div>
             {errors.subject && (
               <p className="text-sm text-red-600 mt-1">
                 {errors.subject.message}
@@ -240,10 +231,7 @@ export default function ArticleModal({
             <Label className="flex items-center gap-2" htmlFor={`${id}-tags`}>
               <span>Tags</span>
               <Tooltip tip="Press Enter to create a tag">
-                <Info
-                  size={16}
-                  className="text-gray-500 hover:text-gray-700 cursor-help"
-                />
+                <Info size={16} className="text-gray-500 cursor-help" />
               </Tooltip>
             </Label>
             <Controller
@@ -251,19 +239,16 @@ export default function ArticleModal({
               control={control}
               render={({ field: { onChange, value } }) => (
                 <Tags
-                  settings={{
-                    whitelist: tagSuggestions,
-                    dropdown: { enabled: 0 },
-                  }}
                   value={value}
                   onChange={(e) => {
                     try {
-                      const tags = JSON.parse(e.detail.value);
-                      onChange(tags);
+                      onChange(JSON.parse(e.detail.value));
                     } catch {
                       onChange([]);
                     }
                   }}
+                  settings={{ dropdown: { enabled: 0 } }}
+                  className="tagify bg-white text-black border  rounded-md focus:border-blue-400 focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-white"
                 />
               )}
             />
@@ -287,7 +272,12 @@ export default function ArticleModal({
               control={control}
               rules={{ required: "Content is required" }}
               render={({ field }) => (
-                <MarkdownEditor value={field.value} onChange={field.onChange} />
+                <div className="bg-white text-black rounded-lg shadow-sm p-4 min-h-[300px]">
+                  <MarkdownEditor
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                </div>
               )}
             />
             {errors.content && (
@@ -297,7 +287,7 @@ export default function ArticleModal({
             )}
           </div>
 
-          {/* UploadThing Dropzone */}
+          {/* Upload Dropzone */}
           <div>
             <Label>Attachments (Upload files)</Label>
             <UploadDropzone
@@ -305,22 +295,20 @@ export default function ArticleModal({
               onClientUploadComplete={(files) => {
                 const existingUrls = new Set(attachments.map((a) => a.url));
                 const newAttachments = files
-                  .filter((file) => !existingUrls.has(file.ufsUrl))
-                  .map((file) => ({
+                  .filter((f) => !existingUrls.has(f.ufsUrl))
+                  .map((f) => ({
                     customId: uuidv4(),
-                    url: file.ufsUrl,
-                    name: file.name,
-                    type: getAttachmentTypeFromFilename(file.name),
+                    url: f.ufsUrl,
+                    name: f.name,
+                    type: getAttachmentTypeFromFilename(f.name),
                   }));
-
                 setAttachments((prev) => [...prev, ...newAttachments]);
-
                 if (newAttachments.length > 0)
                   toast.success("Attachment uploaded");
               }}
               onUploadError={(error) => {
-                console.error("Upload failed:", error);
-                toast.error("Upload failed. Please try again.");
+                console.error(error);
+                toast.error("Upload failed.");
               }}
               disabled={isSaving}
             />
@@ -330,13 +318,13 @@ export default function ArticleModal({
           {attachments.length > 0 && (
             <div>
               <Label>Uploaded Attachments</Label>
-              <ul className="max-h-40 overflow-auto divide-y rounded border border-gray-200 dark:border-gray-700">
+              <ul className="max-h-40 overflow-auto divide-y rounded border border-gray-300">
                 {attachments.map((att, idx) => (
                   <li
                     key={att.customId || idx}
-                    className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800"
+                    className="flex items-center justify-between px-3 py-2 hover:bg-gray-100"
                   >
-                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                    <div className="flex items-center gap-2 text-sm text-black">
                       {att.type === "image" ? (
                         <img
                           src={att.url}
@@ -385,6 +373,7 @@ export default function ArticleModal({
             </div>
           )}
 
+          {/* Buttons */}
           <div className="flex justify-end space-x-3 mt-6">
             <Button
               type="button"
@@ -398,7 +387,7 @@ export default function ArticleModal({
               {isSaving ? (
                 <>
                   <span className="loading loading-spinner loading-sm mr-2"></span>
-                  Saving...
+                  Saving & Translating...
                 </>
               ) : (
                 "Save"

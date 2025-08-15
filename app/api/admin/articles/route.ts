@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/adminAuth";
 import connectMongoDB from "@/lib/mongodb";
 import Article from "@/models/Article";
+import { translateArticleFields } from "@/lib/azureTranslate";
 
 type AttachmentType =
   | "pdf"
@@ -11,27 +12,28 @@ type AttachmentType =
   | "ppt"
   | "pptx"
   | "xlsx"
-  | "video"
-  | "jpg"
-  | "png";
+  | "video";
 
 interface Attachment {
   type: AttachmentType;
   url: string;
   name: string;
-  public_id?: string; // optional, e.g., UploadThing fileKey or id
+  public_id?: string; // optional
+}
+
+function logDebug(...args: any[]) {
+  console.debug("[DEBUG]", ...args);
 }
 
 function normalizeAttachmentType(type: string): AttachmentType {
   const lower = type.toLowerCase();
   if (["jpg", "png"].includes(lower)) return "image";
   if (["mp4", "webm"].includes(lower)) return "video";
-  if (lower === "xlsx") return "xlsx";
-  if (lower === "pptx") return "pptx";
-  if (lower === "ppt") return "ppt";
-  if (lower === "docx") return "docx";
-  if (lower === "pdf") return "pdf";
-  // Default fallback
+  if (["xlsx"].includes(lower)) return "xlsx";
+  if (["pptx"].includes(lower)) return "pptx";
+  if (["ppt"].includes(lower)) return "ppt";
+  if (["docx"].includes(lower)) return "docx";
+  if (["pdf"].includes(lower)) return "pdf";
   return "form";
 }
 
@@ -40,10 +42,11 @@ function normalizeTags(input: unknown): string[] {
   if (typeof input === "string") {
     try {
       const parsed = JSON.parse(input);
-      if (Array.isArray(parsed))
+      if (Array.isArray(parsed)) {
         return parsed
           .map((t) => (typeof t === "string" ? t : t?.value))
           .filter(Boolean);
+      }
       if (typeof parsed === "string") return [parsed];
     } catch {
       return [input];
@@ -70,7 +73,8 @@ function sanitizeAttachments(input: unknown): Attachment[] {
                 ? normalizeAttachmentType(att.type)
                 : "form";
             const url = att.url && typeof att.url === "string" ? att.url : "";
-            const name = att.name && typeof att.name === "string" ? att.name : "";
+            const name =
+              att.name && typeof att.name === "string" ? att.name : "";
             return { type, url, name, public_id: att.public_id };
           })
           .filter((att) => att.url && att.name);
@@ -96,6 +100,14 @@ function sanitizeAttachments(input: unknown): Attachment[] {
   return [];
 }
 
+function generateSlug(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// POST - Create new article
 export async function POST(req: Request) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
@@ -104,11 +116,15 @@ export async function POST(req: Request) {
 
   try {
     const formData = await req.formData();
-    const title = formData.get("title") as string | null;
-    const content = formData.get("content") as string | null;
-    const subject = (formData.get("subject") as string) || "";
+    const titleRaw = formData.get("title");
+    const contentRaw = formData.get("content");
+    const subjectRaw = formData.get("subject");
     const tagsInput = formData.getAll("tags");
     const attachmentsInput = formData.get("attachments");
+
+    const title = typeof titleRaw === "string" ? titleRaw : null;
+    const content = typeof contentRaw === "string" ? contentRaw : null;
+    const subject = typeof subjectRaw === "string" ? subjectRaw : "";
 
     if (!title || !content) {
       return NextResponse.json(
@@ -117,10 +133,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const slug = title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+    const slug = generateSlug(title);
 
     const existing = await Article.findOne({ slug });
     if (existing) {
@@ -133,19 +146,37 @@ export async function POST(req: Request) {
     const tags = normalizeTags(tagsInput);
     const attachments = sanitizeAttachments(attachmentsInput);
 
-    const newArticle = new Article({
+    // Translate fields
+    let title_ar = "";
+    let subject_ar = "";
+    let content_ar = "";
+    try {
+      const result = await translateArticleFields(title, subject, content);
+      title_ar = result.title_ar;
+      subject_ar = result.subject_ar;
+      content_ar = result.content_ar;
+    } catch (translationError) {
+      console.error("Translation failed:", translationError);
+    }
+
+    const articleData = {
       title,
       slug,
       subject,
       content,
       tags,
       attachments,
-      // Mongoose timestamps will handle createdAt and updatedAt automatically
-    });
+      title_ar,
+      subject_ar,
+      content_ar,
+    };
 
+    const newArticle = new Article(articleData);
     await newArticle.save();
 
-    return NextResponse.json(newArticle, { status: 201 });
+    const savedArticle = await Article.findById(newArticle._id).lean();
+
+    return NextResponse.json(savedArticle, { status: 201 });
   } catch (err) {
     console.error("Create article error:", err);
     return NextResponse.json(
@@ -155,6 +186,7 @@ export async function POST(req: Request) {
   }
 }
 
+// PUT - Update article
 export async function PUT(req: Request) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
@@ -163,14 +195,9 @@ export async function PUT(req: Request) {
 
   try {
     const formData = await req.formData();
-    const title = formData.get("title") as string | null;
-    const content = formData.get("content") as string | null;
-    const subject = (formData.get("subject") as string) || "";
-    const tagsInput = formData.getAll("tags");
-    const attachmentsInput = formData.get("attachments");
-    const slug = formData.get("slug") as string | null;
-    const id = formData.get("id") as string;
 
+    const idRaw = formData.get("id");
+    const id = typeof idRaw === "string" ? idRaw : null;
     if (!id) {
       return NextResponse.json(
         { success: false, message: "Missing article ID" },
@@ -186,31 +213,47 @@ export async function PUT(req: Request) {
       );
     }
 
+    const titleRaw = formData.get("title");
+    const contentRaw = formData.get("content");
+    const subjectRaw = formData.get("subject");
+    const tagsInput = formData.getAll("tags");
+    const attachmentsInput = formData.get("attachments");
+    const slugInputRaw = formData.get("slug");
+
+    const title = typeof titleRaw === "string" ? titleRaw : null;
+    const content = typeof contentRaw === "string" ? contentRaw : null;
+    const subject =
+      typeof subjectRaw === "string" ? subjectRaw : article.subject;
+    const slugInput =
+      typeof slugInputRaw === "string" && slugInputRaw.trim() !== ""
+        ? slugInputRaw
+        : null;
+
+    // Update fields if provided, else keep old
     article.title = title ?? article.title;
     article.content = content ?? article.content;
     article.subject = subject;
 
-    const generatedSlug = (title ?? article.title)
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+    // Generate or normalize slug
+    const generatedSlug = generateSlug(article.title ?? "");
+    const slugToUse = slugInput ? generateSlug(slugInput) : generatedSlug;
 
-    // Check slug uniqueness (exclude current article)
-    const slugToCheck = slug || generatedSlug;
-    const slugConflict = await Article.findOne({
-      slug: slugToCheck,
-      _id: { $ne: id },
-    });
-    if (slugConflict) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Slug already in use by another article",
-        },
-        { status: 400 }
-      );
+    // Normalize current slug for comparison
+    const currentSlugNormalized = generateSlug(article.slug ?? "");
+
+    if (slugToUse !== currentSlugNormalized) {
+      const slugConflict = await Article.findOne({
+        slug: slugToUse,
+        _id: { $ne: id },
+      });
+      if (slugConflict) {
+        return NextResponse.json(
+          { success: false, message: "Slug already in use by another article" },
+          { status: 400 }
+        );
+      }
+      article.slug = slugToUse;
     }
-    article.slug = slugToCheck;
 
     article.tags = normalizeTags(tagsInput);
 
@@ -218,9 +261,34 @@ export async function PUT(req: Request) {
       article.attachments = sanitizeAttachments(attachmentsInput);
     }
 
+    // Detect if main text changed
+    const textChanged =
+      (title !== null && title !== article.title) ||
+      (content !== null && content !== article.content) ||
+      subject !== article.subject;
+
+    if (textChanged) {
+      try {
+        const result = await translateArticleFields(
+          article.title ?? "",
+          article.subject ?? "",
+          article.content ?? ""
+        );
+
+        article.title_ar = result.title_ar;
+        article.subject_ar = result.subject_ar;
+        article.content_ar = result.content_ar;
+      } catch (translationError) {
+        console.error("Translation failed on update:", translationError);
+      }
+    }
+
+    article.updatedAt = new Date();
     await article.save();
 
-    return NextResponse.json({ success: true, article });
+    const updatedArticle = await Article.findById(id).lean();
+
+    return NextResponse.json({ success: true, article: updatedArticle });
   } catch (error) {
     console.error("Error updating article:", error);
     return NextResponse.json(
@@ -230,6 +298,7 @@ export async function PUT(req: Request) {
   }
 }
 
+// DELETE - Delete article by ID (from route params)
 export async function DELETE(
   req: Request,
   { params }: { params: { id: string } }
@@ -250,12 +319,9 @@ export async function DELETE(
 
   try {
     const deleted = await Article.findByIdAndDelete(id);
-
     if (!deleted) {
       return NextResponse.json({ error: "Article not found" }, { status: 404 });
     }
-
-   
 
     return NextResponse.json(
       { message: "Article deleted successfully" },
@@ -270,6 +336,7 @@ export async function DELETE(
   }
 }
 
+// GET - List articles with pagination, filtering, sorting
 export async function GET(req: Request) {
   const authCheck = await requireAdmin(req);
   if (authCheck instanceof NextResponse) return authCheck;
@@ -278,14 +345,16 @@ export async function GET(req: Request) {
 
   try {
     const url = new URL(req.url);
-    const page = parseInt(url.searchParams.get("page") || "1", 10);
-    const limit = parseInt(url.searchParams.get("limit") || "10", 10);
-    const search = url.searchParams.get("search")?.trim() || "";
-    const sortParam = url.searchParams.get("sort") || "-createdAt";
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(url.searchParams.get("limit") ?? "10", 10))
+    ); // max 100
+    const search = url.searchParams.get("search")?.trim() ?? "";
+    const sortParam = url.searchParams.get("sort") ?? "-createdAt";
     const dateFrom = url.searchParams.get("dateFrom");
     const dateTo = url.searchParams.get("dateTo");
 
-    // Build filter
     const filter: Record<string, any> = {};
 
     if (search) {
@@ -302,8 +371,7 @@ export async function GET(req: Request) {
       if (dateTo) filter.createdAt.$lte = new Date(dateTo);
     }
 
-    // Parse sort like "-title" or "createdAt"
-    let sort: Record<string, 1 | -1> = { createdAt: -1 }; // default
+    let sort: Record<string, 1 | -1> = { createdAt: -1 };
     if (sortParam.startsWith("-")) {
       sort = { [sortParam.slice(1)]: -1 };
     } else {
@@ -314,7 +382,9 @@ export async function GET(req: Request) {
 
     const total = await Article.countDocuments(filter);
     const articles = await Article.find(filter)
-      .select("title slug subject createdAt upvotes downvotes tags content attachments")
+      .select(
+        "title slug subject createdAt upvotes downvotes tags content attachments title_ar subject_ar content_ar"
+      )
       .sort(sort)
       .skip(skip)
       .limit(limit)
@@ -328,6 +398,9 @@ export async function GET(req: Request) {
     });
   } catch (err) {
     console.error("Failed to fetch articles:", err);
-    return NextResponse.json({ error: "Failed to fetch articles" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch articles" },
+      { status: 500 }
+    );
   }
 }

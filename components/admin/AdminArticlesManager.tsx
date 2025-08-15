@@ -15,6 +15,7 @@ import {
   FilePieChart,
   FileSpreadsheet,
   FileVideo,
+  Search,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
@@ -30,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -90,20 +90,16 @@ export default function AdminArticlesManager() {
   const limit = 10;
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [sort, setSort] = useState<
-    "createdAt" | "-createdAt" | "title" | "-title"
-  >("-createdAt");
+  const [sort, setSort] = useState<"createdAt" | "-createdAt" | "title" | "-title">("-createdAt");
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
-  // Reset to first page whenever filters/search change
   useEffect(() => {
     setPage(1);
   }, [searchTerm, sort, dateFrom, dateTo]);
 
   const totalPages = Math.ceil(totalItems / limit);
 
-  // Define fetchArticles BEFORE using in debounce
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
@@ -130,24 +126,16 @@ export default function AdminArticlesManager() {
     }
   }, [page, limit, sort, searchTerm, dateFrom, dateTo]);
 
-  // Debounce fetchArticles for searchTerm changes
   const debouncedFetch = useMemo(() => debounce(fetchArticles, 400), [fetchArticles]);
 
-  // Fetch on page, sort, dateFrom, dateTo changes immediately
   useEffect(() => {
     fetchArticles();
   }, [page, sort, dateFrom, dateTo, fetchArticles]);
 
-  // Debounced fetch on searchTerm changes only
   useEffect(() => {
     debouncedFetch();
-
-    return () => {
-      debouncedFetch.cancel();
-    };
+    return () => debouncedFetch.cancel();
   }, [searchTerm, debouncedFetch]);
-
-  // Handlers and other functions remain exactly the same:
 
   const handleEdit = (id: string) => {
     const article = articles.find((a) => a._id === id);
@@ -235,9 +223,7 @@ export default function AdminArticlesManager() {
     async (id: string) => {
       setConfirmDeleteId(null);
       try {
-        const res = await fetch(`/api/admin/articles/${id}`, {
-          method: "DELETE",
-        });
+        const res = await fetch(`/api/admin/articles/${id}`, { method: "DELETE" });
         if (!res.ok) throw new Error("Failed");
         toast.success("Deleted");
         fetchArticles();
@@ -264,74 +250,79 @@ export default function AdminArticlesManager() {
       <Toaster />
       <header className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Admin Articles</h1>
-        <Button onClick={handleCreate}>
-          <PlusCircle size={18} className="mr-2" />
+        <Button className="flex items-center gap-2" onClick={handleCreate}>
+          <PlusCircle size={18} />
           Create New
         </Button>
       </header>
 
       {/* Filters */}
-      <div className="grid md:grid-cols-4 sm:grid-cols-2 gap-4 mb-6">
-        <div className="md:col-span-1">
-          <Label>Search</Label>
+      <div className="grid md:grid-cols-4 sm:grid-cols-2 gap-4 mb-6 items-end">
+        {/* Search with nicer focus */}
+        <div className="relative">
           <Input
-            placeholder="Search by title or subject"
+            placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-800 rounded"
           />
-        </div>
-        <div>
-          <Label>Sort</Label>
-          <Select value={sort} onValueChange={(value) => setSort(value as any)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Sort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="-createdAt">Newest</SelectItem>
-                <SelectItem value="createdAt">Oldest</SelectItem>
-                <SelectItem value="title">Title (A-Z)</SelectItem>
-                <SelectItem value="-title">Title (Z-A)</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
         </div>
 
-        <div className="flex gap-2 mt-3">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full">
-                {dateFrom ? dateFrom.toDateString() : "From"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} />
-            </PopoverContent>
-          </Popover>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full">
-                {dateTo ? dateTo.toDateString() : "To"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={dateTo}
-                onSelect={setDateTo}
-                hidden={{
-                  before: dateFrom ?? undefined,
-                  after: new Date(),
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+        {/* Sort */}
+        <Select value={sort} onValueChange={(value) => setSort(value as any)}>
+          <SelectTrigger className="focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-800 rounded">
+            <SelectValue placeholder="Sort" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="-createdAt">Newest</SelectItem>
+              <SelectItem value="createdAt">Oldest</SelectItem>
+              <SelectItem value="title">Title (A-Z)</SelectItem>
+              <SelectItem value="-title">Title (Z-A)</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+
+        {/* Date From */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-800 rounded"
+            >
+              {dateFrom ? dateFrom.toDateString() : "From"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} />
+          </PopoverContent>
+        </Popover>
+
+        {/* Date To */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full focus:ring-2 focus:ring-blue-400 focus:ring-offset-1 focus:ring-offset-gray-50 dark:focus:ring-offset-gray-800 rounded"
+            >
+              {dateTo ? dateTo.toDateString() : "To"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={dateTo}
+              onSelect={setDateTo}
+              hidden={{ before: dateFrom ?? undefined, after: new Date() }}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Table */}
       {loading ? (
-        <p className="text-center">Loading...</p>
+        <p className="text-center text-gray-500">Loading...</p>
       ) : (
         <div className="overflow-x-auto shadow border rounded-lg">
           <table className="min-w-full text-sm table-auto">
@@ -347,16 +338,14 @@ export default function AdminArticlesManager() {
             </thead>
             <tbody className="divide-y dark:divide-gray-700">
               {articles.map((a) => (
-                <tr
-                  key={a._id}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
-                >
+                <tr key={a._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-4 py-2 max-w-xs break-words">
                     <Link
                       href={`/articles/${a.slug}`}
                       className="text-blue-600 hover:underline font-medium"
                       target="_blank"
                       rel="noopener noreferrer"
+                      title={a.title}
                     >
                       {a.title}
                     </Link>
@@ -377,37 +366,37 @@ export default function AdminArticlesManager() {
                   <td className="px-4 py-2">
                     {a.attachments && a.attachments.length > 0 ? (
                       <div className="flex flex-wrap gap-3">
-                        {(
-                          Object.keys(attachmentIconMap) as AttachmentType[]
-                        ).map((type) => {
-                          const count = a.attachments?.filter(
-                            (att) => att.type === type
-                          ).length;
-                          if (!count) return null;
-                          return (
-                            <TooltipPrimitive.Provider key={type}>
-                              <TooltipPrimitive.Root>
-                                <TooltipPrimitive.Trigger asChild>
-                                  <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 text-sm text-gray-700 rounded">
-                                    {attachmentIconMap[type]}
-                                    <span>{count}</span>
-                                  </div>
-                                </TooltipPrimitive.Trigger>
-                                <TooltipPrimitive.Portal>
-                                  <TooltipPrimitive.Content
-                                    side="top"
-                                    align="center"
-                                    sideOffset={5}
-                                    className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
-                                  >
-                                    {`${count} ${type}${count > 1 ? "s" : ""}`}
-                                    <TooltipPrimitive.Arrow className="fill-gray-800" />
-                                  </TooltipPrimitive.Content>
-                                </TooltipPrimitive.Portal>
-                              </TooltipPrimitive.Root>
-                            </TooltipPrimitive.Provider>
-                          );
-                        })}
+                        {(Object.keys(attachmentIconMap) as AttachmentType[]).map(
+                          (type) => {
+                            const count = a.attachments?.filter(
+                              (att) => att.type === type
+                            ).length;
+                            if (!count) return null;
+                            return (
+                              <TooltipPrimitive.Provider key={type}>
+                                <TooltipPrimitive.Root>
+                                  <TooltipPrimitive.Trigger asChild>
+                                    <div className="flex items-center gap-1 bg-gray-100 px-2 py-1 text-sm text-gray-700 rounded">
+                                      {attachmentIconMap[type]}
+                                      <span>{count}</span>
+                                    </div>
+                                  </TooltipPrimitive.Trigger>
+                                  <TooltipPrimitive.Portal>
+                                    <TooltipPrimitive.Content
+                                      side="top"
+                                      align="center"
+                                      sideOffset={5}
+                                      className="rounded bg-gray-800 px-2 py-1 text-xs text-white shadow-lg z-50"
+                                    >
+                                      {`${count} ${type}${count > 1 ? "s" : ""}`}
+                                      <TooltipPrimitive.Arrow className="fill-gray-800" />
+                                    </TooltipPrimitive.Content>
+                                  </TooltipPrimitive.Portal>
+                                </TooltipPrimitive.Root>
+                              </TooltipPrimitive.Provider>
+                            );
+                          }
+                        )}
                       </div>
                     ) : (
                       <span className="text-gray-400">None</span>

@@ -21,8 +21,11 @@ export default async function Home() {
     _id: (article._id as Types.ObjectId).toString(),
     slug: article.slug,
     title: article.title,
+    title_ar: article.title_ar, // ADD: Include Arabic title
     subject: article.subject,
+    subject_ar: article.subject_ar, // ADD: Include Arabic subject
     content: article.content,
+    content_ar: article.content_ar, // ADD: Include Arabic content
     tags: article.tags || [],
     attachments: article.attachments || [],
     createdAt: article.createdAt ? article.createdAt.toISOString() : "",
