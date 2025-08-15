@@ -129,39 +129,48 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
   async signIn({ user }) {
-    const email = user?.email?.toLowerCase();
-    if (!email) return false;
+  const email = user?.email?.toLowerCase();
+  if (!email) return false;
 
-    const client = await clientPromise;
-    const db = client.db("it-kb-cluster");
+  const client = await clientPromise;
+  const db = client.db("it-kb-cluster");
 
-    const dbUser = await db.collection("users").findOne({ email });
+  const now = new Date();
 
-    if (!dbUser) {
-      // User doesn't exist: create new with default role 'user'
-      await db.collection("users").insertOne({
-        email,
-        role: "user",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      logDebug("[signIn] Created new user with role 'user':", email);
-    } else {
-      logDebug("[signIn] Existing user role:", dbUser.role);
-    }
+  const dbUser = await db.collection("users").findOne({ email });
 
-    const { allowedDomains, exceptionEmails } = await getAllowedSettings();
-
-    const isAllowed =
-      allowedDomains.some((domain) => email.endsWith(`@${domain}`)) ||
-      exceptionEmails.includes(email) ||
-      devEmails.includes(email);
-
-    logDebug(
-      `[signIn] Login ${isAllowed ? "✅ allowed" : "❌ denied"} for ${email}`
+  if (!dbUser) {
+    // Create new user
+    await db.collection("users").insertOne({
+      email,
+      role: "user",
+      createdAt: now,
+      updatedAt: now,
+      lastLogin: now,
+      lastActive: now,
+    });
+    logDebug("[signIn] Created new user with role 'user':", email);
+  } else {
+    // Update last login + last active for existing user
+    await db.collection("users").updateOne(
+      { email },
+      { $set: { lastLogin: now, lastActive: now, updatedAt: now } }
     );
-    return isAllowed;
-  },
+    logDebug("[signIn] Updated lastLogin & lastActive for:", email);
+  }
+
+  const { allowedDomains, exceptionEmails } = await getAllowedSettings();
+
+  const isAllowed =
+    allowedDomains.some((domain) => email.endsWith(`@${domain}`)) ||
+    exceptionEmails.includes(email) ||
+    devEmails.includes(email);
+
+  logDebug(
+    `[signIn] Login ${isAllowed ? "✅ allowed" : "❌ denied"} for ${email}`
+  );
+  return isAllowed;
+},
 
   async jwt({ token, user }) {
     if (user?.email) {

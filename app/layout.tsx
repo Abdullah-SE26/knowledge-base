@@ -6,8 +6,8 @@ import Navbar from "@/components/Navbar";
 import { Providers } from "./providers";
 import ThemeProviderWrapper from "@/components/ThemeProviderWrapper";
 import Footer from "@/components/Footer";
-// import { Analytics } from '@vercel/analytics/next';
-// import { SpeedInsights } from '@vercel/speed-insights/next';
+import TrackActiveWrapper from "@/components/TrackActiveWrapper";
+
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,9 +39,9 @@ export default function RootLayout({
           <div className="w-full max-w-7xl px-4 py-6">
             <Providers>
               <Navbar />
+              <TrackActiveWrapper>
               {children}
-              {/* <Analytics/>
-              <SpeedInsights /> */}
+              </TrackActiveWrapper>
               <Footer/>
             </Providers>
           </div>

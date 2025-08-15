@@ -4,7 +4,7 @@ import connectMongoDB from "@/lib/mongodb";
 
 export async function checkAuthorization(
   email: string,
-  role: string,
+  role: string = "user",
   options?: { requireAdmin?: boolean; requireSuperadmin?: boolean }
 ) {
   await connectMongoDB();
