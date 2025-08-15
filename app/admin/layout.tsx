@@ -19,43 +19,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const navItems = React.useMemo(() => {
     if (session?.user?.role === "superadmin") {
       return [
+        { href: "/", icon: Home, label: "Home" },
         ...baseNavItems,
-        { href: "api/admin/superadmin", icon: ShieldUser, label: "Super Admin" },
+        { href: "/admin/superadmin", icon: ShieldUser, label: "Super Admin" },
       ];
     }
-    return baseNavItems;
+    return [
+      { href: "/", icon: Home, label: "Home" },
+      ...baseNavItems,
+    ];
   }, [session?.user?.role]);
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar */}
-      <aside className="flex flex-col items-center w-20 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 shadow-lg py-6 space-y-6">
-        {/* Home Icon */}
+      <aside className="flex flex-col items-center w-20 bg-gradient-to-b from-white to-gray-100 dark:from-gray-800 dark:to-gray-900 border-r border-gray-200 dark:border-gray-700 shadow-lg py-6 space-y-6">
         <Tooltip.Provider>
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <Link
-                href="/"
-                aria-label="Home page"
-                className="flex items-center justify-center w-12 h-12 rounded-xl text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900 transition"
-              >
-                <Home className="w-7 h-7" />
-              </Link>
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                side="right"
-                sideOffset={6}
-                className="z-50 rounded bg-black px-2 py-1 text-xs text-white shadow-md"
-              >
-                Home
-                <Tooltip.Arrow className="fill-black" />
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
-
           {/* Navigation */}
-          <nav className="flex flex-col items-center space-y-4 mt-4">
+          <nav className="flex flex-col items-center space-y-4 mt-2">
             {navItems.map(({ href, icon: Icon, label }) => {
               const isActive = pathname === href;
               return (
@@ -68,8 +49,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       className={`flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200
                         ${
                           isActive
-                            ? "bg-blue-600 text-white shadow-md"
-                            : "text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white"
+                            ? "bg-blue-600 text-white shadow-lg"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-blue-500 dark:hover:bg-blue-600 hover:text-white"
                         }
                       `}
                     >
@@ -94,7 +75,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-6 overflow-auto">{children}</main>
+      <main className="flex-1 p-6 overflow-auto bg-gray-50 dark:bg-gray-900 rounded-tl-2xl transition-colors">
+        {children}
+      </main>
     </div>
   );
 }

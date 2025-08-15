@@ -16,7 +16,7 @@ import nodemailer from "nodemailer";
 import { JWT } from "next-auth/jwt";
 import { Session } from "next-auth";
 import { MongoClient } from "mongodb";
-import User from "@/models/User";
+
 
 const devEmails = ["m.abdullahx21@gmail.com"];
 
