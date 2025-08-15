@@ -1,9 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, lazy, Suspense } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import { PaginationWrapper } from "@/components/ui/PaginationWrapper";
-import ConfirmationModal from "@/components/admin/ConfirmationModal";
+
+const ConfirmationModal = lazy(
+  () => import("@/components/admin/ConfirmationModal")
+);
 
 interface User {
   id: string;
@@ -40,50 +43,54 @@ export default function SuperAdminPage() {
 
   const isBusy = loadingSettings || savingSettings || loadingUsers;
 
-  const totalPages = Math.ceil(users.length / USERS_PER_PAGE);
-  const paginatedUsers = users.slice(
-    (currentPage - 1) * USERS_PER_PAGE,
-    currentPage * USERS_PER_PAGE
+  const totalPages = useMemo(
+    () => Math.ceil(users.length / USERS_PER_PAGE),
+    [users]
+  );
+
+  const paginatedUsers = useMemo(
+    () =>
+      users.slice(
+        (currentPage - 1) * USERS_PER_PAGE,
+        currentPage * USERS_PER_PAGE
+      ),
+    [users, currentPage]
   );
 
   useEffect(() => {
-    async function loadSettings() {
+    async function loadAll() {
       setLoadingSettings(true);
-      try {
-        const res = await fetch("/api/admin/superadmin/settings");
-        if (!res.ok) throw new Error("Failed to fetch settings");
-        const data = await res.json();
-        setAllowedDomains(data.allowedDomains || []);
-        setExceptions(data.exceptionEmails || []);
-      } catch {
-        toast.error("Error loading settings");
-      } finally {
-        setLoadingSettings(false);
-      }
-    }
-
-    async function loadUsers() {
       setLoadingUsers(true);
       try {
-        const res = await fetch("/api/admin/superadmin/users");
-        if (!res.ok) throw new Error("Failed to fetch users");
-        const data = await res.json();
+        const [settingsRes, usersRes] = await Promise.all([
+          fetch("/api/admin/superadmin/settings"),
+          fetch("/api/admin/superadmin/users"),
+        ]);
+
+        if (!settingsRes.ok) throw new Error("Failed to fetch settings");
+        if (!usersRes.ok) throw new Error("Failed to fetch users");
+
+        const settingsData = await settingsRes.json();
+        setAllowedDomains(settingsData.allowedDomains || []);
+        setExceptions(settingsData.exceptionEmails || []);
+
+        const usersData = await usersRes.json();
         setUsers(
-          data.map((u: any) => ({
+          usersData.map((u: any) => ({
             id: u._id || u.id,
             email: u.email,
             role: u.role,
           }))
         );
       } catch {
-        toast.error("Error loading users");
+        toast.error("Error loading data");
       } finally {
+        setLoadingSettings(false);
         setLoadingUsers(false);
       }
     }
 
-    loadSettings();
-    loadUsers();
+    loadAll();
   }, []);
 
   function confirmModalAction(
@@ -238,17 +245,65 @@ export default function SuperAdminPage() {
     );
   }
 
+  const userRows = useMemo(
+    () =>
+      paginatedUsers.map(({ id, email, role }) => (
+        <tr
+          key={id}
+          className="border-t hover:bg-gray-100 dark:hover:bg-gray-800 min-h-[50px]"
+        >
+          <td className="px-4 py-2">{email}</td>
+          <td className="px-4 py-2 capitalize">{role}</td>
+          <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
+            <label htmlFor={`role-${id}`} className="sr-only">
+              User Role
+            </label>
+            <select
+              id={`role-${id}`}
+              value={role}
+              onChange={(e) => changeUserRole(id, e.target.value)}
+              className="rounded border px-2 py-1 dark:bg-gray-800 dark:text-white min-h-[38px]"
+              disabled={isBusy || email === PROTECTED_EMAIL}
+            >
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+              <option value="superadmin">Super Admin</option>
+            </select>
+
+            <button
+              onClick={() => handleDeleteUser(id, email)}
+              disabled={isBusy || email === PROTECTED_EMAIL}
+              className={`px-2 py-1 rounded text-white text-sm ${
+                email === PROTECTED_EMAIL
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-red-600 hover:bg-red-700"
+              }`}
+              aria-label={`Delete user ${email}`}
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+      )),
+    [paginatedUsers, isBusy]
+  );
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <Toaster position="top-center" />
-      <ConfirmationModal
-        isOpen={modal.open}
-        title={modal.title}
-        description={modal.description}
-        onClose={() => setModal({ ...modal, open: false })}
-        onConfirm={modal.confirm}
-        confirmText={modal.confirmText}
-      />
+      <Suspense fallback={<div>Loading modal...</div>}>
+        <ConfirmationModal
+          isOpen={modal.open}
+          title={modal.title}
+          description={modal.description}
+          onClose={() => setModal({ ...modal, open: false })}
+          onConfirm={modal.confirm}
+          confirmText={modal.confirmText}
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          aria-describedby="modal-description"
+        />
+      </Suspense>
 
       <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">
         Super Admin Panel
@@ -258,12 +313,16 @@ export default function SuperAdminPage() {
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Allowed Login Domains</h2>
         <div className="flex gap-2 mb-4">
+          <label htmlFor="new-domain" className="sr-only">
+            New domain
+          </label>
           <input
+            id="new-domain"
             type="text"
             placeholder="Add domain (e.g. example.com)"
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
-            className="flex-grow rounded border px-3 py-2 dark:bg-gray-800 dark:text-white"
+            className="flex-grow rounded border px-3 py-2 dark:bg-gray-800 dark:text-white min-h-[38px]"
             disabled={isBusy}
           />
           <button
@@ -274,9 +333,9 @@ export default function SuperAdminPage() {
             Add
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <ul className="flex flex-wrap gap-2">
           {allowedDomains.map((domain) => (
-            <span
+            <li
               key={domain}
               className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1 rounded flex items-center gap-2"
             >
@@ -285,24 +344,29 @@ export default function SuperAdminPage() {
                 onClick={() => removeDomain(domain)}
                 className="text-red-600 hover:text-red-800"
                 disabled={isBusy}
+                aria-label={`Remove domain ${domain}`}
               >
                 &times;
               </button>
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {/* Exceptions */}
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Login Exceptions</h2>
         <div className="flex gap-2 mb-4">
+          <label htmlFor="new-exception" className="sr-only">
+            New exception email
+          </label>
           <input
+            id="new-exception"
             type="email"
             placeholder="Add exception email"
             value={newException}
             onChange={(e) => setNewException(e.target.value)}
-            className="flex-grow rounded border px-3 py-2 dark:bg-gray-800 dark:text-white"
+            className="flex-grow rounded border px-3 py-2 dark:bg-gray-800 dark:text-white min-h-[38px]"
             disabled={isBusy}
           />
           <button
@@ -313,9 +377,9 @@ export default function SuperAdminPage() {
             Add
           </button>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <ul className="flex flex-wrap gap-2">
           {exceptions.map((email) => (
-            <span
+            <li
               key={email}
               className="bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-1 rounded flex items-center gap-2"
             >
@@ -328,12 +392,13 @@ export default function SuperAdminPage() {
                     : "text-red-600 hover:text-red-800"
                 }`}
                 disabled={isBusy || email === PROTECTED_EMAIL}
+                aria-label={`Remove exception ${email}`}
               >
                 &times;
               </button>
-            </span>
+            </li>
           ))}
-        </div>
+        </ul>
       </section>
 
       {/* Save Settings */}
@@ -365,41 +430,7 @@ export default function SuperAdminPage() {
                     </th>
                   </tr>
                 </thead>
-                <tbody>
-                  {paginatedUsers.map(({ id, email, role }) => (
-                    <tr
-                      key={id}
-                      className="border-t hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      <td className="px-4 py-2">{email}</td>
-                      <td className="px-4 py-2 capitalize">{role}</td>
-                      <td className="px-4 py-2 text-center flex items-center justify-center gap-2">
-                        <select
-                          value={role}
-                          onChange={(e) => changeUserRole(id, e.target.value)}
-                          className="rounded border px-2 py-1 dark:bg-gray-800 dark:text-white"
-                          disabled={isBusy || email === PROTECTED_EMAIL}
-                        >
-                          <option value="user">User</option>
-                          <option value="admin">Admin</option>
-                          <option value="superadmin">Super Admin</option>
-                        </select>
-
-                        <button
-                          onClick={() => handleDeleteUser(id, email)}
-                          disabled={isBusy || email === PROTECTED_EMAIL}
-                          className={`px-2 py-1 rounded text-white text-sm ${
-                            email === PROTECTED_EMAIL
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-red-600 hover:bg-red-700"
-                          }`}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+                <tbody>{userRows}</tbody>
               </table>
             </div>
 
