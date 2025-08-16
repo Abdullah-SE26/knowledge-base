@@ -35,6 +35,6 @@
     ".next/types/**/*.ts",
     "test-email.js",
     "lib/testAzureTranslation.js"
-, "lib/azureTranslate.ts"  ],
+, "lib/azureTranslate.ts", "sentry.client.config.js"  ],
   "exclude": ["node_modules"]
 }
