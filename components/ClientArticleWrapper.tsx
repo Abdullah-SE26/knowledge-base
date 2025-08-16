@@ -73,7 +73,7 @@ export default function ClientArticleWrapper({
 
   return (
     <main className="max-w-6xl mx-auto py-12 px-4 relative">
-      {/* Back button aligned to card */}
+      {/* Back button */}
       <div className="mb-6">
         <BackButton />
       </div>
@@ -107,14 +107,14 @@ export default function ClientArticleWrapper({
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl sm:text-4xl font-semibold text-center mb-2 text-gray-900 dark:text-gray-100 leading-tight">
+        <h1 className="text-3xl sm:text-4xl font-semibold text-center mb-2 text-gray-900 dark:text-gray-100 leading-tight mt-5">
           {title}
         </h1>
 
         {/* Subject */}
         {subject && (
           <h2 className="text-lg text-gray-600 dark:text-gray-300 italic text-center mb-8">
-          {subject}
+            {subject}
           </h2>
         )}
 
@@ -125,7 +125,7 @@ export default function ClientArticleWrapper({
           dir={language === "ar" ? "rtl" : "ltr"}
         />
 
-        {/* Bottom row aligned perfectly */}
+        {/* Bottom row */}
         <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-3 mt-8">
           <ArticleActionsClient
             articleId={slug}
@@ -142,7 +142,7 @@ export default function ClientArticleWrapper({
         </div>
       </div>
 
-      {/* Attachments section matches card width */}
+      {/* Attachments */}
       <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
         <h3 className="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-300">
           Attachments
@@ -150,37 +150,61 @@ export default function ClientArticleWrapper({
 
         {attachments && attachments.length > 0 ? (
           <ul className="space-y-4">
-            {attachments.map((attachment, index) => (
-              <li
-                key={index}
-                className="flex items-start gap-3 bg-gray-50 dark:bg-gray-900 p-4 rounded-lg shadow-sm"
-              >
-                {/* Icon */}
-                {attachment.type === "image" ? (
-                  <ImageIcon className="w-5 h-5 text-blue-600 mt-1" />
-                ) : attachment.type === "pdf" ? (
-                  <FileText className="w-5 h-5 text-red-600 mt-1" />
-                ) : attachment.type === "docx" ? (
-                  <FileText className="w-5 h-5 text-blue-800 mt-1" />
-                ) : attachment.type === "ppt" || attachment.type === "pptx" ? (
-                  <FilePieChart className="w-5 h-5 text-orange-500 mt-1" />
-                ) : attachment.type === "xlsx" ? (
-                  <FileSpreadsheet className="w-5 h-5 text-green-600 mt-1" />
-                ) : attachment.type === "video" ? (
-                  <FileVideo className="w-5 h-5 text-purple-600 mt-1" />
-                ) : (
-                  <FileSignature className="w-5 h-5 text-gray-600 mt-1" />
-                )}
+            {attachments.map((attachment, index) => {
+              const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(
+                attachment.name || ""
+              );
+              const isVideo = attachment.type === "video";
 
-                {/* File preview / link */}
-                <div className="flex flex-col">
-                  {attachment.type === "image" ? (
-                    <img
-                      src={attachment.url}
-                      alt={attachment.name || "Image"}
-                      className="max-w-sm rounded shadow"
-                    />
-                  ) : attachment.type === "video" ? (
+              // Compute image number based on image index
+              const imageNumber =
+                attachments
+                  .filter((att) =>
+                    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.name || "")
+                  )
+                  .findIndex((att) => att === attachment) + 1;
+
+              return (
+                <li
+                  key={index}
+                  className="flex flex-col items-start bg-gray-50 dark:bg-gray-900 p-4 rounded-lg shadow-sm"
+                >
+                  {/* Icon and filename */}
+                  <div className="flex items-center gap-3 mb-2">
+                    {isImage ? (
+                      <ImageIcon className="w-5 h-5 text-blue-600" />
+                    ) : isVideo ? (
+                      <FileVideo className="w-5 h-5 text-purple-600" />
+                    ) : attachment.type === "pdf" ? (
+                      <FileText className="w-5 h-5 text-red-600" />
+                    ) : attachment.type === "docx" ? (
+                      <FileText className="w-5 h-5 text-blue-800" />
+                    ) : attachment.type === "ppt" ||
+                      attachment.type === "pptx" ? (
+                      <FilePieChart className="w-5 h-5 text-orange-500" />
+                    ) : attachment.type === "xlsx" ? (
+                      <FileSpreadsheet className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <FileSignature className="w-5 h-5 text-gray-600" />
+                    )}
+                    <span className="text-gray-700 dark:text-gray-300 font-medium">
+                      {attachment.name || "Attachment"}
+                    </span>
+                  </div>
+
+                  {/* Preview */}
+                  {isImage ? (
+                    <>
+                      <img
+                        src={attachment.url}
+                        alt={attachment.name || `Image ${imageNumber}`}
+                        className="w-full max-w-xl h-auto rounded shadow border border-gray-300 dark:border-gray-700"
+                      />
+                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Image {imageNumber}
+                      </p>
+                    </>
+                  ) : isVideo ? (
                     <>
                       <video
                         controls
@@ -203,9 +227,9 @@ export default function ClientArticleWrapper({
                       {attachment.name || "View File"}
                     </a>
                   )}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-gray-500 italic">

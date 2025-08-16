@@ -228,8 +228,8 @@ export default function ArticleModal({
 
           {/* Tags */}
           <div>
-            <Label className="flex items-center gap-2" htmlFor={`${id}-tags`}>
-              <span>Tags</span>
+            <Label className="flex items-center gap-2 mb-2" htmlFor={`${id}-tags`}>
+              <span >Tags</span>
               <Tooltip tip="Press Enter to create a tag">
                 <Info size={16} className="text-gray-500 cursor-help" />
               </Tooltip>
